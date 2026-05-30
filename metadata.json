@@ -1,0 +1,6 @@
+{
+  "name": "Remote Team Mini ERP",
+  "description": "Mini ERP for remote teams featuring daily attendance punch, automated work logs, Team Lead email summaries via Gemini, and team task distribution.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
