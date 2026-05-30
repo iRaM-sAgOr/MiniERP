@@ -514,150 +514,179 @@ export default function TeamDashboard({
               );
             }
 
-            return (
-              <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
-                {queriedTasks.map((task) => {
-                  const assignedToMember = members.find(m => m.id === task.assignedTo);
-                  const assignedByMember = members.find(m => m.id === task.assignedBy);
-                  
-                  return (
-                    <div 
-                      key={task.id} 
-                      className="p-3 bg-[#fdfcf8] border border-[#e2dfd2] rounded-2xl hover:bg-[#f4f1e8]/30 hover:border-[#5a6e53]/35 hover:shadow-xs transition-all space-y-2.5 cursor-pointer group text-left"
-                      onClick={() => setSelectedTaskId(task.id)}
-                    >
-                      <div className="flex justify-between items-start gap-2">
-                        <div className="space-y-1 text-left flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {task.projectName && (
-                              <span className="text-[9px] bg-emerald-50 text-[#5a6e53] font-extrabold font-mono px-2 py-0.5 rounded border border-emerald-100 uppercase tracking-wider">
-                                📂 {task.projectName}
-                              </span>
-                            )}
-                            {task.priority === 'High' && (
-                              <ArrowUpCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                            )}
-                            {task.priority === 'Medium' && (
-                              <Minus className="w-3.5 h-3.5 text-amber-500 shrink-0 bg-amber-50 rounded-full border border-amber-300" />
-                            )}
-                            {task.priority === 'Low' && (
-                              <ArrowDownCircle className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                            )}
-                            <h4 className="text-xs font-extrabold text-[#3d403a] leading-tight truncate">{task.title}</h4>
-                          </div>
-                          <p className="text-[11px] text-[#7a7d75] whitespace-normal leading-relaxed">{task.description}</p>
-                        </div>
-                        <div className="flex gap-1 shrink-0 flex-wrap justify-end" onClick={(e) => e.stopPropagation()}>
-                          <span className={`px-2 py-0.5 text-[9px] font-bold border rounded-lg ${getPriorityBadgeColor(task.priority)}`}>
-                            {task.priority}
-                          </span>
-                          <span className={`px-2 py-0.5 text-[9px] font-bold border rounded-lg ${getStatusBadgeColor(task.status)}`}>
-                            {task.status}
-                          </span>
-                        </div>
-                      </div>
+            const myQueriedTasks = queriedTasks.filter(task => task.assignedTo === currentMember.id);
+            const otherQueriedTasks = queriedTasks.filter(task => task.assignedTo !== currentMember.id);
 
-                      {/* Timelines and Scope actual hours tracking metrics */}
-                      <div className="flex flex-wrap shrink-0 justify-between items-center bg-[#f4f1e8]/20 p-2 border border-[#e2dfd2]/40 rounded-xl text-left gap-2">
-                        <div className="space-y-0.5">
-                          <span className="text-[#7a7d75] font-mono block uppercase text-[8px] tracking-wider font-extrabold">Work Timeline:</span>
-                          <span className="font-semibold text-[#3d403a] font-mono text-[9.5px]">{task.startDate || 'N/A'} to {task.endDate || task.dueDate || 'N/A'}</span>
-                        </div>
-                        <div className="text-right space-y-0.5">
-                          <span className="text-[#7a7d75] font-mono block uppercase text-[8px] tracking-wider font-extrabold text-right">Scope vs Logged Actuals:</span>
-                          <span className="font-mono text-[10px] text-right block">
-                            Allocated: <span className="text-slate-800 font-bold">{task.estimatedHours || 12}h</span>
-                            {" | "}
-                            Spent: <span className={`font-bold font-mono ${(task.actualHours || 0) > (task.estimatedHours || 0) ? 'text-red-500 font-extrabold' : 'text-[#3d403a]'}`}>{task.actualHours || 0}h</span>
-                          </span>
-                        </div>
-                      </div>
+            const renderTaskCard = (task: TaskDistribution) => {
+              const assignedToMember = members.find(m => m.id === task.assignedTo);
+              const assignedByMember = members.find(m => m.id === task.assignedBy);
 
-                      {/* Miniature progress track */}
-                      {task.subtasks && task.subtasks.length > 0 && (
-                        <div className="space-y-1 pt-0.5">
-                          <div className="flex justify-between items-center text-[9px] font-mono font-bold text-[#5a6e53]">
-                            <span className="flex items-center gap-1">🎯 Checklist Progress:</span>
-                            <span>
-                              {task.subtasks.filter(s => s.isCompleted).length} / {task.subtasks.length} done ({Math.round((task.subtasks.filter(s => s.isCompleted).length / task.subtasks.length) * 100)}%)
-                            </span>
-                          </div>
-                          <div className="w-full bg-slate-100 rounded-full h-1 overflow-hidden border border-slate-200/50">
-                            <div 
-                              className="h-full bg-emerald-600 transition-all duration-300" 
-                              style={{ 
-                                width: `${Math.round((task.subtasks.filter(s => s.isCompleted).length / task.subtasks.length) * 100)}%` 
-                              }}
-                            />
-                          </div>
+              return (
+                <div
+                  key={task.id}
+                  className="p-3 bg-[#fdfcf8] border border-[#e2dfd2] rounded-2xl hover:bg-[#f4f1e8]/30 hover:border-[#5a6e53]/35 hover:shadow-xs transition-all space-y-2.5 cursor-pointer group text-left"
+                  onClick={() => setSelectedTaskId(task.id)}
+                >
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="space-y-1 text-left flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {task.projectName && (
+                          <span className="text-[9px] bg-emerald-50 text-[#5a6e53] font-extrabold font-mono px-2 py-0.5 rounded border border-emerald-100 uppercase tracking-wider">
+                            📂 {task.projectName}
+                          </span>
+                        )}
+                        {task.priority === 'High' && (
+                          <ArrowUpCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                        )}
+                        {task.priority === 'Medium' && (
+                          <Minus className="w-3.5 h-3.5 text-amber-500 shrink-0 bg-amber-50 rounded-full border border-amber-300" />
+                        )}
+                        {task.priority === 'Low' && (
+                          <ArrowDownCircle className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                        )}
+                        <h4 className="text-xs font-extrabold text-[#3d403a] leading-tight truncate">{task.title}</h4>
+                      </div>
+                      <p className="text-[11px] text-[#7a7d75] whitespace-normal leading-relaxed">{task.description}</p>
+                    </div>
+                    <div className="flex gap-1 shrink-0 flex-wrap justify-end" onClick={(e) => e.stopPropagation()}>
+                      <span className={`px-2 py-0.5 text-[9px] font-bold border rounded-lg ${getPriorityBadgeColor(task.priority)}`}>
+                        {task.priority}
+                      </span>
+                      <span className={`px-2 py-0.5 text-[9px] font-bold border rounded-lg ${getStatusBadgeColor(task.status)}`}>
+                        {task.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap shrink-0 justify-between items-center bg-[#f4f1e8]/20 p-2 border border-[#e2dfd2]/40 rounded-xl text-left gap-2">
+                    <div className="space-y-0.5">
+                      <span className="text-[#7a7d75] font-mono block uppercase text-[8px] tracking-wider font-extrabold">Work Timeline:</span>
+                      <span className="font-semibold text-[#3d403a] font-mono text-[9.5px]">{task.startDate || 'N/A'} to {task.endDate || task.dueDate || 'N/A'}</span>
+                    </div>
+                    <div className="text-right space-y-0.5">
+                      <span className="text-[#7a7d75] font-mono block uppercase text-[8px] tracking-wider font-extrabold text-right">Scope vs Logged Actuals:</span>
+                      <span className="font-mono text-[10px] text-right block">
+                        Allocated: <span className="text-slate-800 font-bold">{task.estimatedHours || 12}h</span>
+                        {" | "}
+                        Spent: <span className={`font-bold font-mono ${(task.actualHours || 0) > (task.estimatedHours || 0) ? 'text-red-500 font-extrabold' : 'text-[#3d403a]'}`}>{task.actualHours || 0}h</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {task.subtasks && task.subtasks.length > 0 && (
+                    <div className="space-y-1 pt-0.5">
+                      <div className="flex justify-between items-center text-[9px] font-mono font-bold text-[#5a6e53]">
+                        <span className="flex items-center gap-1">🎯 Checklist Progress:</span>
+                        <span>
+                          {task.subtasks.filter(s => s.isCompleted).length} / {task.subtasks.length} done ({Math.round((task.subtasks.filter(s => s.isCompleted).length / task.subtasks.length) * 100)}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-1 overflow-hidden border border-slate-200/50">
+                        <div
+                          className="h-full bg-emerald-600 transition-all duration-300"
+                          style={{
+                            width: `${Math.round((task.subtasks.filter(s => s.isCompleted).length / task.subtasks.length) * 100)}%`
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center justify-between pt-2 border-t border-[#e2dfd2]/40 text-[10px] gap-2">
+                    <div className="flex items-center gap-3">
+                      {assignedToMember && (
+                        <div className="flex items-center gap-1 text-slate-500">
+                          <span className="text-[#7a7d75] font-mono uppercase text-[9px]">Assignee:</span>
+                          <span className="font-bold text-[#3d403a]">{assignedToMember.name}</span>
                         </div>
                       )}
-
-                      <div className="flex flex-wrap items-center justify-between pt-2 border-t border-[#e2dfd2]/40 text-[10px] gap-2">
-                        <div className="flex items-center gap-3">
-                          {assignedToMember && (
-                            <div className="flex items-center gap-1 text-slate-500">
-                              <span className="text-[#7a7d75] font-mono uppercase text-[9px]">Assignee:</span>
-                              <span className="font-bold text-[#3d403a]">{assignedToMember.name}</span>
-                            </div>
-                          )}
-                          {assignedByMember && (
-                            <div className="flex items-center gap-1 text-slate-500">
-                              <span className="text-[#7a7d75] font-mono uppercase text-[9px]">By:</span>
-                              <span className="font-semibold text-slate-500">{assignedByMember.name}</span>
-                            </div>
-                          )}
+                      {assignedByMember && (
+                        <div className="flex items-center gap-1 text-slate-500">
+                          <span className="text-[#7a7d75] font-mono uppercase text-[9px]">By:</span>
+                          <span className="font-semibold text-slate-500">{assignedByMember.name}</span>
                         </div>
+                      )}
+                    </div>
 
-                        <div className="text-[#7a7d75] flex items-center gap-1 font-mono">
-                          <Calendar className="w-3 h-3 text-[#5a6e53]" />
-                          <span>Due: {task.dueDate}</span>
-                        </div>
+                    <div className="text-[#7a7d75] flex items-center gap-1 font-mono">
+                      <Calendar className="w-3 h-3 text-[#5a6e53]" />
+                      <span>Due: {task.dueDate}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center text-[9px] text-[#7a7d75] font-mono font-bold bg-[#f4f1e8]/30 p-1.5 rounded-xl border border-[#e2dfd2]/40 group-hover:bg-[#f4f1e8]/50 group-hover:border-[#e2dfd2]/70 transition-colors">
+                    <span className="flex items-center gap-1 font-sans">
+                      💬 {task.comments?.length || 0} communication notes
+                    </span>
+                    <span className="text-[#5a6e53] font-bold uppercase underline tracking-wider group-hover:text-stone-700">
+                      🔍 Expanded Specs & History →
+                    </span>
+                  </div>
+
+                  <div className="flex justify-end gap-1 px-1 pt-1" onClick={(e) => e.stopPropagation()}>
+                    {task.status !== 'Pending' && (
+                      <button
+                        onClick={() => onUpdateTaskStatus(task.id, 'Pending')}
+                        disabled={loading || (!isManager && task.assignedTo !== currentMember.id)}
+                        className="text-[9px] border border-[#e2dfd2] bg-white hover:bg-[#f4f1e8] px-2 py-0.5 text-[#3d403a] rounded font-semibold transition-colors cursor-pointer disabled:opacity-40"
+                      >
+                        Mark Pending
+                      </button>
+                    )}
+                    {task.status !== 'In Progress' && (
+                      <button
+                        onClick={() => onUpdateTaskStatus(task.id, 'In Progress')}
+                        disabled={loading || (!isManager && task.assignedTo !== currentMember.id)}
+                        className="text-[9px] border border-[#d4a373]/30 bg-[#f4f1e8] hover:opacity-90 px-2 py-0.5 text-[#d4a373] rounded font-bold transition-colors cursor-pointer disabled:opacity-40"
+                      >
+                        In Progress
+                      </button>
+                    )}
+                    {task.status !== 'Completed' && (
+                      <button
+                        onClick={() => onUpdateTaskStatus(task.id, 'Completed')}
+                        disabled={loading || (!isManager && task.assignedTo !== currentMember.id)}
+                        className="text-[9px] bg-[#5a6e53] hover:opacity-90 px-2.5 py-0.5 text-white rounded font-bold transition-colors cursor-pointer shadow-xs disabled:opacity-40"
+                      >
+                        Complete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            };
+
+            return (
+              <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
+                {isManager ? (
+                  queriedTasks.map(renderTaskCard)
+                ) : (
+                  <>
+                    <div className="rounded-xl border border-[#e2dfd2] bg-[#f4f1e8]/25 p-2.5">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-[11px] font-extrabold text-[#2d3a2a] uppercase tracking-wider font-mono">My Tasks</h4>
+                        <span className="text-[10px] font-bold text-[#5a6e53]">{myQueriedTasks.length}</span>
                       </div>
-
-                      {/* Comments count indicator and expand prompt */}
-                      <div className="flex justify-between items-center text-[9px] text-[#7a7d75] font-mono font-bold bg-[#f4f1e8]/30 p-1.5 rounded-xl border border-[#e2dfd2]/40 group-hover:bg-[#f4f1e8]/50 group-hover:border-[#e2dfd2]/70 transition-colors">
-                        <span className="flex items-center gap-1 font-sans">
-                          💬 {task.comments?.length || 0} communication notes
-                        </span>
-                        <span className="text-[#5a6e53] font-bold uppercase underline tracking-wider group-hover:text-stone-700">
-                          🔍 Expanded Specs & History →
-                        </span>
-                      </div>
-
-                      {/* Quick States Controller of tasks (Engineers can change status of tasks assigned to them) */}
-                      <div className="flex justify-end gap-1 px-1 pt-1" onClick={(e) => e.stopPropagation()}>
-                        {task.status !== 'Pending' && (
-                          <button
-                            onClick={() => onUpdateTaskStatus(task.id, 'Pending')}
-                            disabled={loading}
-                            className="text-[9px] border border-[#e2dfd2] bg-white hover:bg-[#f4f1e8] px-2 py-0.5 text-[#3d403a] rounded font-semibold transition-colors cursor-pointer"
-                          >
-                            Mark Pending
-                          </button>
-                        )}
-                        {task.status !== 'In Progress' && (
-                          <button
-                            onClick={() => onUpdateTaskStatus(task.id, 'In Progress')}
-                            disabled={loading}
-                            className="text-[9px] border border-[#d4a373]/30 bg-[#f4f1e8] hover:opacity-90 px-2 py-0.5 text-[#d4a373] rounded font-bold transition-colors cursor-pointer"
-                          >
-                            In Progress
-                          </button>
-                        )}
-                        {task.status !== 'Completed' && (
-                          <button
-                            onClick={() => onUpdateTaskStatus(task.id, 'Completed')}
-                            disabled={loading}
-                            className="text-[9px] bg-[#5a6e53] hover:opacity-90 px-2.5 py-0.5 text-white rounded font-bold transition-colors cursor-pointer shadow-xs"
-                          >
-                            Complete
-                          </button>
+                      <div className="space-y-3">
+                        {myQueriedTasks.length > 0 ? myQueriedTasks.map(renderTaskCard) : (
+                          <p className="text-[11px] text-[#7a7d75] italic">No personal tasks in current filter.</p>
                         )}
                       </div>
                     </div>
-                  );
-                })}
+
+                    <div className="rounded-xl border border-[#e2dfd2] bg-white p-2.5">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-[11px] font-extrabold text-[#2d3a2a] uppercase tracking-wider font-mono">Other Engineers' Tasks</h4>
+                        <span className="text-[10px] font-bold text-slate-500">{otherQueriedTasks.length}</span>
+                      </div>
+                      <div className="space-y-3">
+                        {otherQueriedTasks.length > 0 ? otherQueriedTasks.map(renderTaskCard) : (
+                          <p className="text-[11px] text-[#7a7d75] italic">No other engineers' tasks in current filter.</p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             );
           })()}

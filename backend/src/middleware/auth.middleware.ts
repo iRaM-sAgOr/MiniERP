@@ -19,6 +19,19 @@ export type AuthenticatedRequest = Request & {
   user?: AuthenticatedUser;
 };
 
+export const verifyAuthToken = (token: string) => {
+  const decoded = jwt.verify(token, JWT_SECRET) as AuthTokenPayload;
+  if (!decoded.sub || !decoded.roleType) {
+    throw new Error("JWT token is invalid.");
+  }
+
+  return {
+    id: decoded.sub,
+    roleType: decoded.roleType,
+    email: decoded.email || "",
+  } satisfies AuthenticatedUser;
+};
+
 export const createAuthToken = (member: { id: string; email: string; roleType: string }) => {
   return jwt.sign(
     { sub: member.id, roleType: member.roleType, email: member.email },
@@ -41,20 +54,25 @@ export const requireAuth = (req: AuthenticatedRequest, res: Response, next: Next
   const token = authHeader.slice(7);
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as AuthTokenPayload;
-    if (!decoded.sub || !decoded.roleType) {
-      return res.status(401).json({ error: "JWT token is invalid." });
-    }
-
-    req.user = {
-      id: decoded.sub,
-      roleType: decoded.roleType,
-      email: decoded.email || "",
-    };
+    req.user = verifyAuthToken(token);
     next();
   } catch {
     return res.status(401).json({ error: "JWT token has expired or is invalid." });
   }
+};
+
+export const requireRole = (...roles: Array<AuthenticatedUser["roleType"]>) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "JWT token is required." });
+    }
+
+    if (!roles.includes(req.user.roleType)) {
+      return res.status(403).json({ error: "You do not have access to this route." });
+    }
+
+    next();
+  };
 };
 
 export const getRequestUserId = (req: AuthenticatedRequest) => req.user?.id ?? null;

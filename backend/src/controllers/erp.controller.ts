@@ -2,9 +2,18 @@ import type { Request, Response } from "express";
 import { getRequestUserId } from "../middleware/auth.middleware.js";
 import { ErpService } from "../services/erp.service.js";
 
-export const getState = async (req: Request, res: Response) => {
+export const getManagerState = async (req: Request, res: Response) => {
   try {
-    const state = await ErpService.getState(getRequestUserId(req));
+    const state = await ErpService.getManagerState(getRequestUserId(req));
+    res.json(state);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const getEngineerState = async (req: Request, res: Response) => {
+  try {
+    const state = await ErpService.getEngineerState(getRequestUserId(req));
     res.json(state);
   } catch (err: any) {
     res.status(500).json({ error: err.message });

@@ -4,7 +4,7 @@ export class ErpRepository {
   static async findRequesterById(id: string) {
     return prisma.member.findUnique({
       where: { id },
-      select: { id: true, roleType: true },
+      select: { id: true, roleType: true, email: true },
     });
   }
 

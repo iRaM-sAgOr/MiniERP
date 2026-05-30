@@ -23,3 +23,8 @@ export const getChatSocket = () => {
 
   return chatSocket;
 };
+
+export const setChatSocketAuthToken = (token: string) => {
+  const socket = getChatSocket();
+  socket.auth = token ? { token } : {};
+};

@@ -23,7 +23,7 @@ import WorkLogForm from './components/WorkLogForm';
 import EmailDraftCard from './components/EmailDraftCard';
 import TeamDashboard from './components/TeamDashboard';
 import TaskAllocator from './components/TaskAllocator';
-import { getChatSocket } from './socket/chatSocket';
+import { getChatSocket, setChatSocketAuthToken } from './socket/chatSocket';
 // @ts-ignore
 import aiLogo from './assets/images/ai_solution_usa_logo_1780158886266.png';
 import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage, EnterpriseProject } from './types';
@@ -57,6 +57,7 @@ export default function App() {
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [projects, setProjects] = useState<EnterpriseProject[]>([]);
   const [authToken, setAuthToken] = useState<string>(() => localStorage.getItem('syncspace_auth_token') || '');
+  const [authRoleType, setAuthRoleType] = useState<string>(() => localStorage.getItem('syncspace_auth_role_type') || '');
   
   const [currentMemberId, setCurrentMemberId] = useState<string>(() => localStorage.getItem('syncspace_auth_token') ? (localStorage.getItem('syncspace_current_member_id') || '') : '');
   const [loading, setLoading] = useState(true);
@@ -83,6 +84,19 @@ export default function App() {
   const [regHours, setRegHours] = useState(20);
   const [regBreak, setRegBreak] = useState('Friday');
 
+  const resolveApiPath = (value: RequestInfo | URL) => {
+    if (typeof value !== 'string') return value;
+    if (!value.startsWith('/api/erp/')) return value;
+
+    const suffix = value.slice('/api/erp/'.length);
+    if (suffix === 'login' || suffix === 'register') {
+      return `/api/auth/${suffix}`;
+    }
+
+    const routeScope = authRoleType === 'Manager' ? 'manager' : 'engineer';
+    return `/api/${routeScope}/${suffix}`;
+  };
+
   const apiFetch = (input: RequestInfo | URL, init: RequestInit = {}) => {
     const headers = new Headers(init.headers || {});
     const token = authToken || localStorage.getItem('syncspace_auth_token') || '';
@@ -95,7 +109,7 @@ export default function App() {
       headers.set('Content-Type', 'application/json');
     }
 
-    return fetch(input, { ...init, headers });
+    return fetch(resolveApiPath(input), { ...init, headers });
   };
 
   // Load state from fullstack database API
@@ -130,18 +144,37 @@ export default function App() {
   useEffect(() => {
     const socket = getChatSocket();
     chatSocketRef.current = socket;
+    setChatSocketAuthToken(authToken);
 
     const handleIncomingMessage = (message: DirectMessage) => {
       setMessages(prev => upsertMessage(prev, message));
     };
 
     socket.on('chat:direct:new', handleIncomingMessage);
-    socket.connect();
+
+    if (authToken) {
+      socket.connect();
+    } else {
+      socket.disconnect();
+    }
 
     return () => {
       socket.off('chat:direct:new', handleIncomingMessage);
     };
   }, []);
+
+  useEffect(() => {
+    const socket = chatSocketRef.current;
+    if (!socket) return;
+
+    setChatSocketAuthToken(authToken);
+
+    if (authToken) {
+      socket.connect();
+    } else {
+      socket.disconnect();
+    }
+  }, [authToken]);
 
   useEffect(() => {
     let syncTicker: ReturnType<typeof setInterval> | undefined;
@@ -160,24 +193,6 @@ export default function App() {
       }
     };
   }, [authToken]);
-
-  useEffect(() => {
-    const socket = chatSocketRef.current;
-    if (!socket || !currentMemberId) return;
-
-    const joinRoom = () => {
-      socket.emit('chat:join', { userId: currentMemberId });
-    };
-
-    if (socket.connected) {
-      joinRoom();
-    }
-
-    socket.on('connect', joinRoom);
-    return () => {
-      socket.off('connect', joinRoom);
-    };
-  }, [currentMemberId]);
 
   const triggerAlert = (type: 'success' | 'error' | 'info', text: string) => {
     setSystemAlert({ type, text });
@@ -465,8 +480,10 @@ export default function App() {
         setMembers(data.state.members);
         setCurrentMemberId(data.member.id); // auto select newly registered member!
         setAuthToken(data.token);
+        setAuthRoleType(data.member.roleType || 'Engineer');
         localStorage.setItem('syncspace_current_member_id', data.member.id);
         localStorage.setItem('syncspace_auth_token', data.token);
+        localStorage.setItem('syncspace_auth_role_type', data.member.roleType || 'Engineer');
         triggerAlert('success', `Successfully registered employee ${data.member.name} (Engineer privileges). Session started!`);
       } else {
         const err = await res.json();
@@ -561,9 +578,12 @@ export default function App() {
         setTasks(data.state.tasks);
         setSentEmailsLog(data.state.sentEmailsLog);
         setMessages(data.state.messages || []);
-        setCurrentMemberId('user-sagor');
+        setCurrentMemberId('');
         setAuthToken('');
+        setAuthRoleType('');
         localStorage.removeItem('syncspace_auth_token');
+        localStorage.removeItem('syncspace_auth_role_type');
+        localStorage.removeItem('syncspace_current_member_id');
         triggerAlert('success', 'Relational database wiped & reseeded to raw default layout.');
       }
     } catch (err) {
@@ -724,8 +744,10 @@ export default function App() {
                             const data = await res.json();
                             setCurrentMemberId(data.member.id);
                             setAuthToken(data.token);
+                            setAuthRoleType(data.member.roleType || 'Engineer');
                             localStorage.setItem('syncspace_current_member_id', data.member.id);
                             localStorage.setItem('syncspace_auth_token', data.token);
+                            localStorage.setItem('syncspace_auth_role_type', data.member.roleType || 'Engineer');
                             triggerAlert('success', `Welcome back, ${data.member.name}! Hashed credential session starts.`);
                           } else {
                             const err = await res.json();
@@ -1029,8 +1051,10 @@ export default function App() {
                 onClick={() => {
                   setCurrentMemberId('');
                   setAuthToken('');
+                  setAuthRoleType('');
                   localStorage.removeItem('syncspace_current_member_id');
                   localStorage.removeItem('syncspace_auth_token');
+                  localStorage.removeItem('syncspace_auth_role_type');
                   triggerAlert('info', 'Logged out successfully from remote ERP session.');
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
