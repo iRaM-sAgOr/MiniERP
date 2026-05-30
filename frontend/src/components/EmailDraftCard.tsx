@@ -1,22 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { WorkLog } from '../types';
+import { TeamMember, WorkLog } from '../types';
 import { Mail, Sparkles, Send, CheckCircle2, FileEdit } from 'lucide-react';
 
 interface EmailDraftCardProps {
   worklog: WorkLog | null;
-  onSendEmail: (worklogId: string, subject: string, body: string) => Promise<void>;
+  currentMember: TeamMember;
+  members: TeamMember[];
+  onSendEmail: (worklogId: string, subject: string, body: string, recipientId: string) => Promise<void>;
   loading: boolean;
 }
 
-export default function EmailDraftCard({ worklog, onSendEmail, loading }: EmailDraftCardProps) {
+export default function EmailDraftCard({ worklog, currentMember, members, onSendEmail, loading }: EmailDraftCardProps) {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const [recipientId, setRecipientId] = useState('ALL');
 
   // Sync inputs with selected worklog whenever it updates
   useEffect(() => {
     if (worklog) {
       setSubject(worklog.emailSubject || `Daily Activity Report - (${worklog.date})`);
       setBody(worklog.emailDraft || '');
+      setRecipientId('ALL');
     } else {
       setSubject('');
       setBody('');
@@ -25,8 +29,11 @@ export default function EmailDraftCard({ worklog, onSendEmail, loading }: EmailD
 
   const handleSend = async () => {
     if (!worklog) return;
-    await onSendEmail(worklog.id, subject, body);
+    await onSendEmail(worklog.id, subject, body, recipientId);
   };
+
+  const selectedRecipient = recipientId === 'ALL' ? null : members.find(member => member.id === recipientId) || null;
+  const recipientLabel = recipientId === 'ALL' ? 'All Members' : (selectedRecipient?.name || 'Selected User');
 
   if (!worklog) {
     return (
@@ -75,6 +82,25 @@ export default function EmailDraftCard({ worklog, onSendEmail, loading }: EmailD
         </div>
       )}
 
+      <div className="mb-4">
+        <label className="block text-[10px] font-bold text-[#7a7d75] uppercase tracking-wider mb-1">
+          Recipient
+        </label>
+        <select
+          value={recipientId}
+          onChange={(e) => setRecipientId(e.target.value)}
+          disabled={isSent || loading}
+          className="w-full text-xs font-bold px-3.5 py-2.5 bg-[#fdfcf8] border border-[#e2dfd2] rounded-xl text-[#3d403a] focus:outline-none focus:border-[#5a6e53]/70 focus:ring-1 focus:ring-[#5a6e53]/70 transition-all duration-200 disabled:bg-[#f4f1e8]/30 disabled:text-[#7a7d75]"
+        >
+          <option value="ALL">ALL members of this organization</option>
+          {members.map(member => (
+            <option key={member.id} value={member.id}>
+              {member.name} ({member.roleType})
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Subject Line input */}
       <div className="mb-4">
         <label className="block text-[10px] font-bold text-[#7a7d75] uppercase tracking-wider mb-1">
@@ -110,12 +136,12 @@ export default function EmailDraftCard({ worklog, onSendEmail, loading }: EmailD
           disabled={loading || !subject.trim() || !body.trim()}
           className="w-full flex items-center justify-center gap-2 py-3 bg-[#5a6e53] hover:bg-[#485942] text-white rounded-xl font-bold text-xs shadow-sm hover:shadow transition-all duration-200 disabled:opacity-50"
         >
-          <Send className="w-3.5 h-3.5" /> Dispatch Daily Report to {worklog.assignedTL?.name || 'Supervisor'}
+          <Send className="w-3.5 h-3.5" /> Send Mail to {recipientLabel}
         </button>
       ) : (
         <div className="p-3 bg-emerald-50/50 border border-emerald-100 rounded-xl flex items-center gap-2.5 text-emerald-800 text-xs font-medium">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-          <span>Report dispatched successfully to {worklog.assignedTL?.name || 'Supervisor'} at {new Date(worklog.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.</span>
+          <span>Mail sent successfully to {recipientLabel} at {new Date(worklog.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.</span>
         </div>
       )}
     </div>

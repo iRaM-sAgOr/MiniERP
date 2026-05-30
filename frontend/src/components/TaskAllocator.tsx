@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { PlusCircle, AlertCircle, FileSpreadsheet, FolderKanban, Info } from 'lucide-react';
 import { TeamMember, EnterpriseProject } from '../types';
 
@@ -18,6 +18,7 @@ interface TaskAllocatorProps {
     endDate: string;
   }) => Promise<void>;
   onCreateProject?: (name: string, description: string) => Promise<void>;
+  onDeleteProject?: (projectId: string) => Promise<void>;
   loading: boolean;
 }
 
@@ -27,6 +28,7 @@ export default function TaskAllocator({
   projects = [],
   onAssignTask,
   onCreateProject,
+  onDeleteProject,
   loading
 }: TaskAllocatorProps) {
   const [title, setTitle] = useState('');
@@ -42,6 +44,18 @@ export default function TaskAllocator({
   const [selectedProject, setSelectedProject] = useState(() => {
     return projects[0]?.name || 'Monolith Core';
   });
+
+  useEffect(() => {
+    if (projects.length === 0) {
+      setSelectedProject('Monolith Core');
+      return;
+    }
+
+    const projectExists = projects.some(project => project.name === selectedProject);
+    if (!projectExists) {
+      setSelectedProject(projects[0].name);
+    }
+  }, [projects, selectedProject]);
 
   const [estimatedHours, setEstimatedHours] = useState<number>(12);
 
@@ -88,6 +102,13 @@ export default function TaskAllocator({
     await onCreateProject(newProjName.trim(), newProjDesc.trim());
     setNewProjName('');
     setNewProjDesc('');
+  };
+
+  const handleDeleteProject = async (projectId: string, projectName: string) => {
+    if (!onDeleteProject) return;
+    const confirmed = window.confirm(`Delete project \"${projectName}\"?`);
+    if (!confirmed) return;
+    await onDeleteProject(projectId);
   };
 
   return (
@@ -320,9 +341,21 @@ export default function TaskAllocator({
             <h4 className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider mb-2">Registered Projects ({projects.length})</h4>
             <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
               {projects.map((proj) => (
-                <div key={proj.id} className="text-left py-1.5 px-2.5 bg-white rounded-lg border border-slate-200 text-xs">
-                  <span className="font-bold text-[#2d3a2a] block">📁 {proj.name}</span>
-                  {proj.description && <span className="text-[10px] text-[#7a7d75] block mt-0.5 max-w-[200px] truncate">{proj.description}</span>}
+                <div key={proj.id} className="text-left py-1.5 px-2.5 bg-white rounded-lg border border-slate-200 text-xs flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="font-bold text-[#2d3a2a] block">📁 {proj.name}</span>
+                    {proj.description && <span className="text-[10px] text-[#7a7d75] block mt-0.5 max-w-[200px] truncate">{proj.description}</span>}
+                  </div>
+                  {isManager && onDeleteProject && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteProject(proj.id, proj.name)}
+                      disabled={loading}
+                      className="shrink-0 text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-md border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

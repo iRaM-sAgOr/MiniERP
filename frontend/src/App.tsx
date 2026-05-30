@@ -213,19 +213,19 @@ export default function App() {
   };
 
   // Dispatch TL Email (Simulate save receipt)
-  const handleSendEmail = async (worklogId: string, customSubject: string, customBody: string) => {
+  const handleSendEmail = async (worklogId: string, customSubject: string, customBody: string, recipientId: string) => {
     try {
       setLoading(true);
       const res = await fetch('/api/erp/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ worklogId, customSubject, customBody })
+        body: JSON.stringify({ worklogId, customSubject, customBody, recipientId })
       });
       if (res.ok) {
         const data = await res.json();
         setWorklogs(data.state.worklogs);
         setSentEmailsLog(data.state.sentEmailsLog);
-        triggerAlert('success', `Daily worklog successfully disptached to Team Lead! Logging dispatch item.`);
+        triggerAlert('success', 'Mail sent successfully. Logging dispatch item.');
       } else {
         triggerAlert('error', 'Simulation dispatch failure on server.');
       }
@@ -295,6 +295,29 @@ export default function App() {
       }
     } catch (err) {
       triggerAlert('error', 'Network failure connecting database gateway.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/erp/project/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, deletedBy: currentMemberId })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProjects(data.state.projects);
+        triggerAlert('success', 'Project deleted successfully.');
+      } else {
+        const err = await res.json();
+        triggerAlert('error', err.error || 'Failed to delete project.');
+      }
+    } catch (err) {
+      triggerAlert('error', 'Network failure deleting project.');
     } finally {
       setLoading(false);
     }
@@ -1283,6 +1306,8 @@ export default function App() {
               <div className="lg:col-span-1">
                 <EmailDraftCard
                   worklog={activeWorklog}
+                  currentMember={currentMember}
+                  members={members}
                   onSendEmail={handleSendEmail}
                   loading={loading}
                 />
@@ -1357,6 +1382,7 @@ export default function App() {
                   projects={projects}
                   onAssignTask={handleAssignTask}
                   onCreateProject={handleCreateProject}
+                  onDeleteProject={handleDeleteProject}
                   loading={loading}
                 />
               )}

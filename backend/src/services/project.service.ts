@@ -1,4 +1,5 @@
 import { ProjectRepository } from "../repositories/project.repository.js";
+import { MemberRepository } from "../repositories/member.repository.js";
 
 export class ProjectService {
   static async getAllProjects() {
@@ -22,5 +23,23 @@ export class ProjectService {
       createdAt: new Date().toISOString(),
       createdBy,
     });
+  }
+
+  static async deleteProject(projectId: string, deletedBy: string) {
+    const actor = await MemberRepository.findById(deletedBy);
+    if (!actor) {
+      throw new Error("Deleting user was not found.");
+    }
+
+    if (actor.roleType !== "Manager") {
+      throw new Error("Only managers can delete projects.");
+    }
+
+    const project = await ProjectRepository.findById(projectId);
+    if (!project) {
+      throw new Error("Project not found.");
+    }
+
+    return ProjectRepository.delete(projectId);
   }
 }

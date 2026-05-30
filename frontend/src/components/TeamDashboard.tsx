@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Users, 
   ClipboardList, 
@@ -49,8 +49,11 @@ export default function TeamDashboard({
   const [taskSearch, setTaskSearch] = useState('');
   const [taskPriorityFilter, setTaskPriorityFilter] = useState<'All' | 'High' | 'Medium' | 'Low'>('All');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [selectedHistoryMemberId, setSelectedHistoryMemberId] = useState(currentMember.id);
+  const [historyPage, setHistoryPage] = useState(1);
 
   const isManager = currentMember.roleType === 'Manager';
+  const pageSize = 5;
 
   // Days of the week representing break times
   const todayDayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
@@ -71,6 +74,11 @@ export default function TeamDashboard({
     }
   };
 
+  useEffect(() => {
+    setSelectedHistoryMemberId(currentMember.id);
+    setHistoryPage(1);
+  }, [currentMember.id]);
+
   const getMemberStatusBadge = (status: TeamMember['punchStatus']) => {
     switch (status) {
       case 'Active': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
@@ -85,6 +93,27 @@ export default function TeamDashboard({
   const totalMyHours = myLogs.reduce((sum, wl) => {
     return sum + wl.items.reduce((acc, it) => acc + it.hoursSpent, 0);
   }, 0);
+
+  const selectedHistoryMember = members.find(member => member.id === selectedHistoryMemberId) || currentMember;
+  const historyCutoff = new Date();
+  historyCutoff.setDate(historyCutoff.getDate() - 30);
+  const historyLogs = worklogs
+    .filter(wl => wl.userId === selectedHistoryMember.id && new Date(`${wl.date}T00:00:00`).getTime() >= historyCutoff.getTime())
+    .sort((a, b) => {
+      const dateDelta = b.date.localeCompare(a.date);
+      if (dateDelta !== 0) return dateDelta;
+      return (b.submittedAt || '').localeCompare(a.submittedAt || '');
+    });
+  const historyPageCount = Math.max(1, Math.ceil(historyLogs.length / pageSize));
+  const safeHistoryPage = Math.min(historyPage, historyPageCount);
+  const historyPageItems = historyLogs.slice((safeHistoryPage - 1) * pageSize, safeHistoryPage * pageSize);
+  const historyTotalHours = historyLogs.reduce((sum, wl) => sum + wl.items.reduce((acc, it) => acc + it.hoursSpent, 0), 0);
+
+  useEffect(() => {
+    if (historyPage > historyPageCount) {
+      setHistoryPage(historyPageCount);
+    }
+  }, [historyPage, historyPageCount]);
 
   const handleRoleTypeChange = async (userId: string, newRoleType: 'Engineer' | 'Manager') => {
     if (!onUpdateUserRole) return;
@@ -307,6 +336,99 @@ export default function TeamDashboard({
             </div>
           )}
         </div>
+
+        <div className="mt-5 pt-5 border-t border-[#e2dfd2] space-y-4">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <h4 className="text-xs font-bold text-[#2d3a2a] uppercase tracking-wider font-mono">Work Hour History</h4>
+              <p className="text-[11px] text-[#7a7d75]">Last 30 days of submitted work logs with pagination.</p>
+            </div>
+
+            {isManager ? (
+              <select
+                value={selectedHistoryMemberId}
+                onChange={(e) => {
+                  setSelectedHistoryMemberId(e.target.value);
+                  setHistoryPage(1);
+                }}
+                className="text-xs bg-white border border-[#e2dfd2] rounded-xl px-3 py-2 font-bold text-[#3d403a]"
+              >
+                {members.map(member => (
+                  <option key={member.id} value={member.id}>{member.name}</option>
+                ))}
+              </select>
+            ) : (
+              <div className="text-[10px] font-mono font-bold text-[#5a6e53] bg-[#f4f1e8] border border-[#e2dfd2] px-2.5 py-1 rounded-full">
+                {currentMember.name}
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-[#f4f1e8]/30 border border-[#e2dfd2] p-3 rounded-xl text-center">
+              <span className="text-[10px] text-[#7a7d75] font-bold uppercase tracking-wider block font-mono">30-Day Total Hours</span>
+              <span className="text-2xl font-bold text-[#5a6e53] block mt-1 font-mono">{historyTotalHours}h</span>
+            </div>
+            <div className="bg-[#f4f1e8]/30 border border-[#e2dfd2] p-3 rounded-xl text-center">
+              <span className="text-[10px] text-[#7a7d75] font-bold uppercase tracking-wider block font-mono">History Records</span>
+              <span className="text-2xl font-bold text-[#5a6e53] block mt-1 font-mono">{historyLogs.length}</span>
+            </div>
+          </div>
+
+          {historyLogs.length === 0 ? (
+            <div className="text-center py-8 border border-dashed border-[#e2dfd2] rounded-2xl bg-[#f4f1e8]/10">
+              <p className="text-[#7a7d75] text-xs">No work logs found in the last 30 days.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {historyPageItems.map(log => {
+                const dailyHours = log.items.reduce((sum, item) => sum + item.hoursSpent, 0);
+                return (
+                  <div key={log.id} className="bg-white border border-[#e2dfd2] rounded-2xl p-3 text-left">
+                    <div className="flex items-start justify-between gap-2 flex-wrap">
+                      <div>
+                        <h5 className="text-xs font-bold text-[#3d403a]">{log.date}</h5>
+                        <p className="text-[10px] text-[#7a7d75] font-mono">Submitted {new Date(log.submittedAt).toLocaleString()}</p>
+                      </div>
+                      <span className="text-[10px] font-bold text-[#5a6e53] bg-[#f4f1e8] border border-[#e2dfd2] px-2 py-0.5 rounded-full font-mono">{dailyHours}h</span>
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      {log.items.map((item, index) => (
+                        <div key={index} className="text-[11px] text-[#3d403a] leading-relaxed">
+                          <span className="font-bold uppercase text-[9px] bg-slate-200 text-[#3d403a] px-1 rounded mr-1.5">{item.project}</span>
+                          {item.description} <span className="text-slate-400 font-mono">({item.hoursSpent}h)</span>
+                        </div>
+                      ))}
+                    </div>
+                    {log.aiSummarized && (
+                      <p className="mt-2 text-[10px] text-slate-600 italic bg-slate-50 border border-slate-200/60 rounded-xl p-2">{log.aiSummarized}</p>
+                    )}
+                  </div>
+                );
+              })}
+
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <button
+                  onClick={() => setHistoryPage(page => Math.max(1, page - 1))}
+                  disabled={safeHistoryPage === 1}
+                  className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-[#e2dfd2] bg-white disabled:opacity-40"
+                >
+                  Previous
+                </button>
+                <span className="text-[10px] font-mono font-bold text-[#7a7d75]">
+                  Page {safeHistoryPage} / {historyPageCount}
+                </span>
+                <button
+                  onClick={() => setHistoryPage(page => Math.min(historyPageCount, page + 1))}
+                  disabled={safeHistoryPage === historyPageCount}
+                  className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-[#e2dfd2] bg-white disabled:opacity-40"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 2. Tasks Assignments Backlog */}
@@ -413,13 +535,13 @@ export default function TeamDashboard({
                               </span>
                             )}
                             {task.priority === 'High' && (
-                              <ArrowUpCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" title="High Priority" />
+                              <ArrowUpCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                             )}
                             {task.priority === 'Medium' && (
-                              <Minus className="w-3.5 h-3.5 text-amber-500 shrink-0 bg-amber-50 rounded-full border border-amber-300" title="Medium Priority" />
+                              <Minus className="w-3.5 h-3.5 text-amber-500 shrink-0 bg-amber-50 rounded-full border border-amber-300" />
                             )}
                             {task.priority === 'Low' && (
-                              <ArrowDownCircle className="w-3.5 h-3.5 text-blue-500 shrink-0" title="Low Priority" />
+                              <ArrowDownCircle className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                             )}
                             <h4 className="text-xs font-extrabold text-[#3d403a] leading-tight truncate">{task.title}</h4>
                           </div>

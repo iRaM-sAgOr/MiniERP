@@ -120,18 +120,30 @@ router.post("/erp/worklog", async (req, res) => {
 // 6. Send Email
 router.post("/erp/send-email", async (req, res) => {
   try {
-    const { worklogId, customSubject, customBody } = req.body;
+    const { worklogId, customSubject, customBody, recipientId } = req.body;
     const worklog = await prisma.workLog.findUnique({ where: { id: worklogId } });
     if (!worklog) {
       return res.status(404).json({ error: "Work log not found." });
     }
 
+    const dispatchSubject = (customSubject || worklog.emailSubject || `Daily Work Report - ${worklog.date}`).trim();
+    const dispatchBody = (customBody || worklog.emailDraft || "").trim();
+    const isAllRecipients = recipientId === "ALL";
+    const selectedRecipient = !isAllRecipients && recipientId ? await prisma.member.findUnique({ where: { id: recipientId } }) : null;
+
+    if (!isAllRecipients && recipientId && !selectedRecipient) {
+      return res.status(404).json({ error: "Recipient not found." });
+    }
+
+    const receiverName = isAllRecipients ? "All Members" : (selectedRecipient?.name || "Selected User");
+    const receiverEmail = isAllRecipients ? "all@minierp.local" : (selectedRecipient?.email || "selected.user@minierp.local");
+
     await prisma.workLog.update({
       where: { id: worklogId },
       data: {
         sentToTl: true,
-        emailSubject: customSubject,
-        emailDraft: customBody
+        emailSubject: dispatchSubject,
+        emailDraft: dispatchBody
       }
     });
 
@@ -139,10 +151,10 @@ router.post("/erp/send-email", async (req, res) => {
       data: {
         id: "email_" + Math.random().toString(36).substr(2, 9),
         senderId: worklog.userId,
-        subject: customSubject,
-        receiverName: worklog.tlName || "Sarah Connor",
-        receiverEmail: worklog.tlEmail || "sarah.connor@monolith.io",
-        body: customBody,
+        subject: dispatchSubject,
+        receiverName,
+        receiverEmail,
+        body: dispatchBody,
         timestamp: new Date().toISOString()
       }
     });
@@ -226,6 +238,18 @@ router.post("/erp/project", async (req, res) => {
   try {
     const { name, description, createdBy } = req.body;
     await ProjectService.createProject(name, description, createdBy);
+    const state = await getFullState();
+    res.json({ state });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// 12b. Delete Project
+router.post("/erp/project/delete", async (req, res) => {
+  try {
+    const { projectId, deletedBy } = req.body;
+    await ProjectService.deleteProject(projectId, deletedBy);
     const state = await getFullState();
     res.json({ state });
   } catch (err: any) {
