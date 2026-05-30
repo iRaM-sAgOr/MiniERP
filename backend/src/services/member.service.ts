@@ -11,7 +11,7 @@ export class MemberService {
     password?: string;
     name: string;
     role: string;
-    roleType: "Engineer" | "Manager";
+    roleType?: "Engineer" | "Manager";
     department: string;
     agreementHours: number;
     breakDay: string;
@@ -25,6 +25,7 @@ export class MemberService {
     const defaultAvatar = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200";
     const password = data.password || "password123";
     const passwordHash = bcryptjs.hashSync(password, 10);
+    const roleType = data.roleType || "Engineer";
 
     const generatedId = "user-" + Math.random().toString(36).substr(2, 9);
 
@@ -34,11 +35,11 @@ export class MemberService {
       passwordHash,
       name: data.name,
       role: data.role,
-      roleType: data.roleType,
+      roleType,
       avatar: data.avatar || defaultAvatar,
       department: data.department,
       punchStatus: "Offline",
-      isTL: data.roleType === "Manager",
+      isTL: roleType === "Manager",
       agreementHours: Number(data.agreementHours),
       breakDay: data.breakDay,
     });

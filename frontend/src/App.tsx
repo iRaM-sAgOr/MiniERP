@@ -56,8 +56,9 @@ export default function App() {
   const [sentEmailsLog, setSentEmailsLog] = useState<any[]>([]);
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [projects, setProjects] = useState<EnterpriseProject[]>([]);
+  const [authToken, setAuthToken] = useState<string>(() => localStorage.getItem('syncspace_auth_token') || '');
   
-  const [currentMemberId, setCurrentMemberId] = useState<string>(() => localStorage.getItem('syncspace_current_member_id') || '');
+  const [currentMemberId, setCurrentMemberId] = useState<string>(() => localStorage.getItem('syncspace_auth_token') ? (localStorage.getItem('syncspace_current_member_id') || '') : '');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'roster' | 'allocator' | 'messages' | 'sentLogs'>('roster');
   const [systemAlert, setSystemAlert] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
@@ -82,11 +83,33 @@ export default function App() {
   const [regHours, setRegHours] = useState(20);
   const [regBreak, setRegBreak] = useState('Friday');
 
+  const apiFetch = (input: RequestInfo | URL, init: RequestInit = {}) => {
+    const headers = new Headers(init.headers || {});
+    const token = authToken || localStorage.getItem('syncspace_auth_token') || '';
+
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    if (init.body && !headers.has('Content-Type') && !(init.body instanceof FormData)) {
+      headers.set('Content-Type', 'application/json');
+    }
+
+    return fetch(input, { ...init, headers });
+  };
+
   // Load state from fullstack database API
   const fetchState = async (showSilently = false) => {
+    if (!authToken) {
+      if (!showSilently) {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (!showSilently) setLoading(true);
     try {
-      const res = await fetch('/api/erp/state');
+      const res = await apiFetch('/api/erp/state');
       if (res.ok) {
         const data = await res.json();
         setMembers(data.members || []);
@@ -115,18 +138,28 @@ export default function App() {
     socket.on('chat:direct:new', handleIncomingMessage);
     socket.connect();
 
-    fetchState();
-
-    // Constant background state sync every 3000ms (satisfies fluid socket-like chat feel)
-    const syncTicker = setInterval(() => {
-      fetchState(true);
-    }, 3000);
-
     return () => {
-      clearInterval(syncTicker);
       socket.off('chat:direct:new', handleIncomingMessage);
     };
   }, []);
+
+  useEffect(() => {
+    let syncTicker: ReturnType<typeof setInterval> | undefined;
+
+    fetchState();
+
+    if (authToken) {
+      syncTicker = setInterval(() => {
+        fetchState(true);
+      }, 3000);
+    }
+
+    return () => {
+      if (syncTicker) {
+        clearInterval(syncTicker);
+      }
+    };
+  }, [authToken]);
 
   useEffect(() => {
     const socket = chatSocketRef.current;
@@ -161,9 +194,8 @@ export default function App() {
   const handlePunch = async (type: 'Punch' | 'BreakStart' | 'BreakEnd' | 'ClockOut', note?: string) => {
     try {
       setLoading(true);
-      const res = await fetch('/api/erp/punch', {
+      const res = await apiFetch('/api/erp/punch', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: currentMemberId, type, note })
       });
       if (res.ok) {
@@ -188,9 +220,8 @@ export default function App() {
     
     try {
       setLoading(true);
-      const res = await fetch('/api/erp/worklog', {
+      const res = await apiFetch('/api/erp/worklog', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: currentMemberId,
           items,
@@ -216,9 +247,8 @@ export default function App() {
   const handleSendEmail = async (worklogId: string, customSubject: string, customBody: string, recipientId: string) => {
     try {
       setLoading(true);
-      const res = await fetch('/api/erp/send-email', {
+      const res = await apiFetch('/api/erp/send-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ worklogId, customSubject, customBody, recipientId })
       });
       if (res.ok) {
@@ -250,9 +280,8 @@ export default function App() {
   }) => {
     try {
       setLoading(true);
-      const res = await fetch('/api/erp/task', {
+      const res = await apiFetch('/api/erp/task', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...taskData,
           assignedBy: currentMemberId
@@ -276,9 +305,8 @@ export default function App() {
   const handleCreateProject = async (name: string, description: string) => {
     try {
       setLoading(true);
-      const res = await fetch('/api/erp/project', {
+      const res = await apiFetch('/api/erp/project', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name,
           description,
@@ -303,9 +331,8 @@ export default function App() {
   const handleDeleteProject = async (projectId: string) => {
     try {
       setLoading(true);
-      const res = await fetch('/api/erp/project/delete', {
+      const res = await apiFetch('/api/erp/project/delete', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId, deletedBy: currentMemberId })
       });
       if (res.ok) {
@@ -327,9 +354,8 @@ export default function App() {
   const handleUpdateTaskStatus = async (taskId: string, status: 'Pending' | 'In Progress' | 'Completed') => {
     try {
       setLoading(true);
-      const res = await fetch('/api/erp/task/update', {
+      const res = await apiFetch('/api/erp/task/update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId, status, actorId: currentMemberId })
       });
       if (res.ok) {
@@ -350,9 +376,8 @@ export default function App() {
   const handleAddTaskComment = async (taskId: string, text: string) => {
     try {
       setLoading(true);
-      const res = await fetch('/api/erp/task/comment', {
+      const res = await apiFetch('/api/erp/task/comment', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId, authorId: currentMemberId, text })
       });
       if (res.ok) {
@@ -374,9 +399,8 @@ export default function App() {
   const handleUpdateTaskSubtasks = async (taskId: string, subtasks: any[]) => {
     try {
       setLoading(true);
-      const res = await fetch('/api/erp/task/subtasks', {
+      const res = await apiFetch('/api/erp/task/subtasks', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId, subtasks, actorId: currentMemberId })
       });
       if (res.ok) {
@@ -398,9 +422,8 @@ export default function App() {
   const handleUpdateTaskDetails = async (taskId: string, updates: any) => {
     try {
       setLoading(true);
-      const res = await fetch('/api/erp/task/update', {
+      const res = await apiFetch('/api/erp/task/update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId, actorId: currentMemberId, ...updates })
       });
       if (res.ok) {
@@ -430,16 +453,20 @@ export default function App() {
   }) => {
     try {
       setLoading(true);
-      const res = await fetch('/api/erp/register', {
+      const res = await apiFetch('/api/erp/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData)
+        body: JSON.stringify({
+          ...userData,
+          roleType: 'Engineer',
+        })
       });
       if (res.ok) {
         const data = await res.json();
         setMembers(data.state.members);
         setCurrentMemberId(data.member.id); // auto select newly registered member!
+        setAuthToken(data.token);
         localStorage.setItem('syncspace_current_member_id', data.member.id);
+        localStorage.setItem('syncspace_auth_token', data.token);
         triggerAlert('success', `Successfully registered employee ${data.member.name} (Engineer privileges). Session started!`);
       } else {
         const err = await res.json();
@@ -456,9 +483,8 @@ export default function App() {
   const handleUpdateUserRole = async (userId: string, roleType: 'Engineer' | 'Manager') => {
     try {
       setLoading(true);
-      const res = await fetch('/api/erp/update-role', {
+      const res = await apiFetch('/api/erp/update-role', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, roleType })
       });
       if (res.ok) {
@@ -501,9 +527,8 @@ export default function App() {
     }
 
     try {
-      const res = await fetch('/api/erp/message', {
+      const res = await apiFetch('/api/erp/message', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           senderId: currentMemberId,
           receiverId,
@@ -527,7 +552,7 @@ export default function App() {
     if (!window.confirm("Restore standard remote team databases back to baseline seed?")) return;
     try {
       setLoading(true);
-      const res = await fetch('/api/erp/reset', { method: 'POST' });
+      const res = await apiFetch('/api/erp/reset', { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
         setMembers(data.state.members);
@@ -537,6 +562,8 @@ export default function App() {
         setSentEmailsLog(data.state.sentEmailsLog);
         setMessages(data.state.messages || []);
         setCurrentMemberId('user-sagor');
+        setAuthToken('');
+        localStorage.removeItem('syncspace_auth_token');
         triggerAlert('success', 'Relational database wiped & reseeded to raw default layout.');
       }
     } catch (err) {
@@ -689,15 +716,16 @@ export default function App() {
                         }
                         try {
                           setLoading(true);
-                          const res = await fetch('/api/erp/login', {
+                          const res = await apiFetch('/api/erp/login', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ email: loginEmail, password: loginPassword })
                           });
                           if (res.ok) {
                             const data = await res.json();
                             setCurrentMemberId(data.member.id);
+                            setAuthToken(data.token);
                             localStorage.setItem('syncspace_current_member_id', data.member.id);
+                            localStorage.setItem('syncspace_auth_token', data.token);
                             triggerAlert('success', `Welcome back, ${data.member.name}! Hashed credential session starts.`);
                           } else {
                             const err = await res.json();
@@ -1000,7 +1028,9 @@ export default function App() {
               <button
                 onClick={() => {
                   setCurrentMemberId('');
+                  setAuthToken('');
                   localStorage.removeItem('syncspace_current_member_id');
+                  localStorage.removeItem('syncspace_auth_token');
                   triggerAlert('info', 'Logged out successfully from remote ERP session.');
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
