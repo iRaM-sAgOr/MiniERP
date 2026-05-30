@@ -10,10 +10,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load environment variables
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, ".env") });
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT ?? 8080);
+const useViteMiddleware = process.env.NODE_ENV !== "production" && process.env.VITE_MIDDLEWARE !== "false";
 
 app.use(express.json());
 
@@ -31,17 +32,21 @@ WorkLogService.recalculateAllTaskActualHours()
 
 // Serve frontend assets or mount Vite dev middleware
 const startServer = async () => {
-  if (process.env.NODE_ENV !== "production") {
+  if (useViteMiddleware) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
+  } else if (process.env.NODE_ENV === "production") {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
+    });
+  } else {
+    app.get("/", (_req, res) => {
+      res.status(200).send("MiniERP backend API is running. Frontend can be started with npm run dev --workspace=minierp-frontend.");
     });
   }
 

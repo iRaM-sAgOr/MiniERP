@@ -95,7 +95,7 @@ export class TaskService {
       id: "hist_" + Math.random().toString(36).substr(2, 9),
       taskId,
       actorId: authorId,
-      actorName,
+      actorName: authorName,
       type: "comment",
       detail: `Added comment notes: "${text.substring(0, 30)}${text.length > 30 ? "..." : ""}"`,
       timestamp: nowStr,

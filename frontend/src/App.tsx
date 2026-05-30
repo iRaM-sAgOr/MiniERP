@@ -578,7 +578,7 @@ export default function App() {
                   <div className="space-y-6">
                     <div className="text-left space-y-1">
                       <h3 className="text-base font-bold font-serif text-[#2d3a2a]">Account Verification</h3>
-                      <p className="text-xs text-[#7a7d75]">Sign in with your enterprise email and secure password, or select a preconfigured credential card.</p>
+                      <p className="text-xs text-[#7a7d75]">Sign in with your enterprise email and secure password.</p>
                     </div>
 
                     <form
@@ -625,10 +625,7 @@ export default function App() {
                       </div>
 
                       <div>
-                        <div className="flex justify-between items-center mb-1">
-                          <label className="text-xs font-bold text-[#3d403a] block">Secure Hashed Password</label>
-                          <span className="text-[10px] text-slate-400 font-mono">seeded as: password123</span>
-                        </div>
+                        <label className="text-xs font-bold text-[#3d403a] block mb-1">Secure Hashed Password</label>
                         <input
                           type="password"
                           required
@@ -646,67 +643,6 @@ export default function App() {
                         Verify & Login
                       </button>
                     </form>
-
-                    <div className="space-y-3 pt-2 text-left">
-                      <div className="relative flex py-2 items-center">
-                        <div className="flex-grow border-t border-[#e2dfd2]"></div>
-                        <span className="flex-shrink mx-3 text-[10px] text-slate-400 font-bold uppercase font-mono tracking-wider">Demo Access Credentials</span>
-                        <div className="flex-grow border-t border-[#e2dfd2]"></div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-1">
-                        {members.map(member => {
-                          const isTL = member.roleType === 'Manager';
-                          return (
-                            <button
-                              key={member.id}
-                              onClick={async () => {
-                                setLoginEmail(member.email);
-                                setLoginPassword('password123');
-                                try {
-                                  setLoading(true);
-                                  const res = await fetch('/api/erp/login', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ email: member.email, password: 'password123' })
-                                  });
-                                  if (res.ok) {
-                                    const data = await res.json();
-                                    setCurrentMemberId(data.member.id);
-                                    localStorage.setItem('syncspace_current_member_id', data.member.id);
-                                    triggerAlert('success', `Authorized securely acting as ${data.member.name} (Verified hash).`);
-                                  } else {
-                                    const err = await res.json();
-                                    triggerAlert('error', err.error || 'Seeded authentication error.');
-                                  }
-                                } catch (err) {
-                                  triggerAlert('error', 'Authentication gateway error.');
-                                } finally {
-                                  setLoading(false);
-                                }
-                              }}
-                              className="p-3 border border-[#e2dfd2] rounded-2xl bg-[#fdfcf8] text-left hover:bg-[#f4f1e8]/30 transition-all cursor-pointer group flex items-start gap-3"
-                            >
-                              <img
-                                src={member.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200"}
-                                alt={member.name}
-                                className="w-8 h-8 rounded-full object-cover border border-[#e2dfd2] shrink-0"
-                                referrerPolicy="no-referrer"
-                              />
-                              <div className="min-w-0">
-                                <h4 className="text-xs font-bold text-[#3d403a] truncate group-hover:text-[#5a6e53] transition-colors">{member.name}</h4>
-                                <p className="text-[10px] text-[#7a7d75] truncate">{member.email}</p>
-                                <span className={`inline-block mt-1 text-[9px] font-bold px-1.5 py-0.2 rounded font-mono ${
-                                  isTL ? 'bg-indigo-50 border border-indigo-200 text-indigo-700' : 'bg-[#5a6e53]/10 text-[#5a6e53]'
-                                }`}>
-                                  {member.roleType} ({member.department})
-                                </span>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
                   </div>
                 ) : (
                                     <form

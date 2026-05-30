@@ -16,106 +16,23 @@ AI Solution USA's Enterprise Resource Planning (ERP) is a premium, high-fidelity
 
 ## 🐳 Local Development with Docker
 
-To run the application locally in a containerized environment, use the provided Docker instructions. This mimics the production runtime and separates application layers.
+Docker runtime files are colocated with backend services:
 
-### 1. Structure the Dockerfile
-Create a `Dockerfile` in the root of the project:
+1. `backend/Dockerfile`
+2. `backend/docker-compose.local.yml`
+3. `backend/docker-compose.prod.yml`
 
-```dockerfile
-# Use Node.js LTS basis
-FROM node:20-alpine AS builder
-WORKDIR /app
+Local backend + PostgreSQL:
 
-# Copy dependency mappings
-COPY package*.json ./
-RUN npm ci
-
-# Copy codebase
-COPY . .
-
-# Build Vite client and bundle Express server-side
-RUN npm run build
-
-# Production Runner
-FROM node:20-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-
-COPY package*.json ./
-RUN npm ci --only=production
-
-# Copy compiled artifacts from builder
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/db.json ./db.json
-
-EXPOSE 3000
-CMD ["npm", "start"]
-```
-
-### 2. Run with Docker Compose
-Create a `docker-compose.yml` file to handle local variables and mount persistent databases:
-
-```yaml
-version: '3.8'
-
-services:
-  erp-app:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=development
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-    volumes:
-      - ./db.json:/app/db.json
-```
-
-Run the stack locally:
 ```bash
-docker-compose up --build
+docker compose -f backend/docker-compose.local.yml up --build -d
 ```
-The application will boot and bind to `http://localhost:3000`.
 
----
+Production backend with cloud PostgreSQL URL:
 
-## ☁️ Azure Cloud Deployment
-
-To build a cost-effective, world-class enterprise system in Azure, we recommend using Azure Serverless architectures. This keeps operational costs close to **$0/month** for lightweight setups, only scaling up as actual operational request quotas grow.
-
-### 1. Cost-Effective Database: Azure Cosmos DB (Serverless API for NoSQL)
-Azure Cosmos DB is the perfect equivalent to AWS DynamoDB. By utilizing the **Serverless capacity mode**, you are charged strictly for used Request Units (RU) and storage volume consumed, without ongoing provisioned throughput charges.
-
-*   **Free Tier Benefit**: The first 1,000 RU/s throughput and 25 GB of storage are **free forever** in Cosmos DB.
-*   **Configuration Setup**: 
-    1. Provision an Azure Cosmos DB account with the **API for NoSQL** and choose the **Serverless** capacity option.
-    2. Retrieve your Connection String/URI and Private Access Key from the Azure Portal (under *Keys*).
-    3. Install the Azure SDK for Node.js: `npm install @azure/cosmos`
-    4. Connect your backend in `server.ts` to fetch and store attendance records dynamically.
-
-### 2. Container Host: Azure Container Apps (ACA)
-Azure Container Apps lets you deploy serverless containers that can scale down to **zero replicas** when there is no incoming traffic, eliminating idle compute costs.
-
-*   **Free Tier Benefit**: The first 180,000 vCPU-seconds, 360,000 GiB-seconds, and 2 million requests are **free every single month**.
-*   **Deployment Workflow**:
-    ```bash
-    # 1. Sign in to Azure CLI
-    az login
-
-    # 2. Add container app command extension
-    az extension add --name containerapp --upgrade
-
-    # 3. Create a resource group
-    az group create --name AISolutionGroup --location eastus
-
-    # 4. Deploy your Dockerized app
-    az containerapp up \
-      --name aisolution-erp \
-      --resource-group AISolutionGroup \
-      --source . \
-      --ingress external \
-      --target-port 3000 \
-      --env-vars GEMINI_API_KEY=YOUR_GEMINI_API_KEY_HERE COSMOS_KEY=YOUR_COSMOS_KEY_HERE
-    ```
+```bash
+docker compose -f backend/docker-compose.prod.yml --env-file .env.production up --build -d
+```
 
 ---
 
@@ -236,24 +153,115 @@ Aggregates daily engineering achievements, github references, and links to tasks
 
 ---
 
-## 🚀 Running Locally with Node Package Manager
+## 🚀 Simplest Run Model
 
-If you want to run the application directly in node without container overhead:
+Yes, your proposed model is the simplest and cleanest operational setup for this project.
 
-1.  **Install base packages**:
-    ```bash
-    npm install
-    ```
-2.  **Define Environment Credentials**:
-    Create a `.env` file at the project root containing your Gemini API authorization token:
-    ```env
-    GEMINI_API_KEY=your_actual_gemini_api_key_here
-    ```
-3.  **Run Dev Mode**:
-    ```bash
-    npm run dev
-    ```
-4.  **Production Compile & Run**:
-    ```bash
-    npm run build
-    ```
+Local:
+
+1. Frontend runs with `npm run dev`.
+2. Backend + PostgreSQL run with Docker Compose.
+3. Backend container auto-applies Prisma migrations on startup.
+
+Production:
+
+1. Frontend runs with PM2.
+2. Backend runs with Docker Compose.
+3. Backend connects to a managed cloud PostgreSQL URL via `DATABASE_URL`.
+
+---
+
+## 🐘 Local Development (Frontend on Host, Backend+DB in Docker)
+
+### 1. Install workspace dependencies
+
+```bash
+npm install
+```
+
+### 2. Configure root env for secrets
+
+Create/update `backend/.env`:
+
+```env
+GEMINI_API_KEY=your_gemini_key
+```
+
+### 3. Start backend + PostgreSQL with auto migration
+
+```bash
+docker compose -f backend/docker-compose.local.yml up --build -d
+```
+
+This starts:
+
+1. `postgres` container (local database)
+2. `backend` container (API) and runs Prisma generate + migrate deploy automatically
+
+Backend API URL:
+
+```text
+http://localhost:8080
+```
+
+### 4. Run frontend on host machine
+
+```bash
+npm run dev
+```
+
+Frontend URL:
+
+```text
+http://localhost:3000
+```
+
+Stop local backend/db:
+
+```bash
+docker compose -f backend/docker-compose.local.yml down
+```
+
+---
+
+## ☁️ Production (PM2 Frontend + Docker Backend + Cloud DB)
+
+### 1. Set production env file for backend
+
+Create `backend/.env.production` (or inject through your platform):
+
+```env
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DB_NAME?schema=public&sslmode=require
+GEMINI_API_KEY=your_gemini_key
+```
+
+### 2. Run backend with Docker Compose (cloud DB URL)
+
+```bash
+docker compose -f backend/docker-compose.prod.yml --env-file backend/.env.production up --build -d
+```
+
+On container startup, backend auto-runs `prisma migrate deploy` and then starts the API.
+
+### 3. Run frontend with PM2
+
+Build frontend:
+
+```bash
+npm run build --workspace=minierp-frontend
+```
+
+Start frontend preview server with PM2:
+
+```bash
+pm2 start "npm run preview --workspace=minierp-frontend -- --host 0.0.0.0 --port 3000" --name minierp-frontend
+pm2 save
+```
+
+Useful PM2 commands:
+
+```bash
+pm2 status
+pm2 logs minierp-frontend
+pm2 restart minierp-frontend
+```
