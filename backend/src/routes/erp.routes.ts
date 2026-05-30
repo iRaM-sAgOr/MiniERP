@@ -5,6 +5,8 @@ import { PunchService } from "../services/punch.service.js";
 import { WorkLogService } from "../services/worklog.service.js";
 import { TaskService } from "../services/task.service.js";
 import { ProjectService } from "../services/project.service.js";
+import { MessageService } from "../services/message.service.js";
+import { emitDirectMessage } from "../realtime/chat.gateway.js";
 import bcryptjs from "bcryptjs";
 
 const router = Router();
@@ -247,25 +249,8 @@ router.post("/erp/update-role", async (req, res) => {
 router.post("/erp/message", async (req, res) => {
   try {
     const { senderId, receiverId, text } = req.body;
-    const sender = await prisma.member.findUnique({ where: { id: senderId } });
-    if (!sender) {
-      return res.status(404).json({ error: "Sender profile not found." });
-    }
-
-    const messageId = "msg_" + Math.random().toString(36).substr(2, 9);
-    await prisma.message.create({
-      data: {
-        id: messageId,
-        senderId,
-        senderName: sender.name,
-        senderAvatar: sender.avatar,
-        content: text,
-        text: text,
-        channel: "dm",
-        receiverId,
-        timestamp: new Date().toISOString()
-      }
-    });
+    const message = await MessageService.createDirectMessage(senderId, receiverId, text);
+    emitDirectMessage(message);
 
     const state = await getFullState();
     res.json({ state });

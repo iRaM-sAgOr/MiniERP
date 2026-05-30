@@ -146,7 +146,7 @@ Aggregates daily engineering achievements, github references, and links to tasks
 ## 🛠️ Tech Stack & Dependencies
 
 *   **Frontend**: React 18 with Vite, styled elegantly with **Tailwind CSS**.
-*   **Backend**: Node.js & **Express** running on port 3000.
+*   **Backend**: Node.js & **Express** running on port 8080.
 *   **State Management**: Real-time server-synced local storage buffers.
 *   **AI Engine**: `@google/genai` (SDK) via Gemini Flask endpoints.
 *   **Icons**: Clean geometric iconography powered by `lucide-react`.
@@ -168,6 +168,32 @@ Production:
 1. Frontend runs with PM2.
 2. Backend runs with Docker Compose.
 3. Backend connects to a managed cloud PostgreSQL URL via `DATABASE_URL`.
+
+---
+
+## 🔌 Realtime Chat Improvement Notes
+
+Current Socket.IO mapping strategy:
+
+1. Socket IDs are treated as temporary transport IDs (they change on reconnect).
+2. User ID is treated as the stable identity for message routing.
+3. On connect/reconnect, frontend emits a join event with `userId`.
+4. Backend adds the socket to a room keyed by user identity: `user:<userId>`.
+5. Direct messages are emitted to sender and receiver rooms, not to raw socket IDs.
+
+Why this works:
+
+1. Reconnect is safe: user gets a new socket ID but rejoins the same user room.
+2. Multi-tab/device is supported: all sockets for that user receive updates.
+3. Persistence is independent of socket lifecycle because chat writes are stored in DB first.
+
+Planned hardening improvement:
+
+1. Do not trust `senderId` from client payload.
+2. Bind authenticated user identity to socket during handshake/auth middleware.
+3. Resolve sender from socket context server-side before persisting/sending.
+
+This hardening closes sender spoofing risk while preserving current room-based routing.
 
 ---
 

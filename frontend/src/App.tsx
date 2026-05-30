@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Briefcase,
   Users,
@@ -23,9 +23,30 @@ import WorkLogForm from './components/WorkLogForm';
 import EmailDraftCard from './components/EmailDraftCard';
 import TeamDashboard from './components/TeamDashboard';
 import TaskAllocator from './components/TaskAllocator';
+import { getChatSocket } from './socket/chatSocket';
 // @ts-ignore
 import aiLogo from './assets/images/ai_solution_usa_logo_1780158886266.png';
 import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage, EnterpriseProject } from './types';
+
+const upsertMessage = (current: DirectMessage[], incoming: any): DirectMessage[] => {
+  const normalized: DirectMessage = {
+    id: incoming.id,
+    senderId: incoming.senderId,
+    receiverId: incoming.receiverId,
+    senderName: incoming.senderName,
+    text: incoming.text || incoming.content || '',
+    timestamp: incoming.timestamp,
+  };
+
+  const existingIndex = current.findIndex(m => m.id === normalized.id);
+  if (existingIndex >= 0) {
+    const next = [...current];
+    next[existingIndex] = normalized;
+    return next;
+  }
+
+  return [...current, normalized];
+};
 
 export default function App() {
   const [members, setMembers] = useState<TeamMember[]>([]);
@@ -49,6 +70,7 @@ export default function App() {
   // Direct Message selected conversation & thread typing state
   const [selectedChatUserId, setSelectedChatUserId] = useState<string>('');
   const [typedMessage, setTypedMessage] = useState<string>('');
+  const chatSocketRef = useRef<ReturnType<typeof getChatSocket> | null>(null);
 
   // Registration overlay settings state
   const [showRegForm, setShowRegForm] = useState(false);
@@ -83,6 +105,16 @@ export default function App() {
   };
 
   useEffect(() => {
+    const socket = getChatSocket();
+    chatSocketRef.current = socket;
+
+    const handleIncomingMessage = (message: DirectMessage) => {
+      setMessages(prev => upsertMessage(prev, message));
+    };
+
+    socket.on('chat:direct:new', handleIncomingMessage);
+    socket.connect();
+
     fetchState();
 
     // Constant background state sync every 3000ms (satisfies fluid socket-like chat feel)
@@ -90,8 +122,29 @@ export default function App() {
       fetchState(true);
     }, 3000);
 
-    return () => clearInterval(syncTicker);
+    return () => {
+      clearInterval(syncTicker);
+      socket.off('chat:direct:new', handleIncomingMessage);
+    };
   }, []);
+
+  useEffect(() => {
+    const socket = chatSocketRef.current;
+    if (!socket || !currentMemberId) return;
+
+    const joinRoom = () => {
+      socket.emit('chat:join', { userId: currentMemberId });
+    };
+
+    if (socket.connected) {
+      joinRoom();
+    }
+
+    socket.on('connect', joinRoom);
+    return () => {
+      socket.off('connect', joinRoom);
+    };
+  }, [currentMemberId]);
 
   const triggerAlert = (type: 'success' | 'error' | 'info', text: string) => {
     setSystemAlert({ type, text });
@@ -401,6 +454,29 @@ export default function App() {
 
   // Handle direct messaging between manager and engineers
   const handleSendMessage = async (receiverId: string, text: string) => {
+    const normalizedText = text.trim();
+    if (!normalizedText) return;
+
+    const socket = chatSocketRef.current;
+    if (socket?.connected) {
+      socket.emit(
+        'chat:direct:send',
+        {
+          senderId: currentMemberId,
+          receiverId,
+          text: normalizedText
+        },
+        (ack: { ok: boolean; message?: DirectMessage; error?: string }) => {
+          if (!ack?.ok) {
+            triggerAlert('error', ack?.error || 'Failed to send message.');
+          } else if (ack.message) {
+            setMessages(prev => upsertMessage(prev, ack.message));
+          }
+        }
+      );
+      return;
+    }
+
     try {
       const res = await fetch('/api/erp/message', {
         method: 'POST',
@@ -408,12 +484,12 @@ export default function App() {
         body: JSON.stringify({
           senderId: currentMemberId,
           receiverId,
-          text
+          text: normalizedText
         })
       });
       if (res.ok) {
         const data = await res.json();
-        setMessages(data.state.messages || []);
+        setMessages((data.state.messages || []) as DirectMessage[]);
         triggerAlert('success', 'Message dispatched successfully!');
       } else {
         triggerAlert('error', 'Server failed to save direct message.');

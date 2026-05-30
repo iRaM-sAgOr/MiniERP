@@ -14,10 +14,23 @@ export class MessageRepository {
     senderId: string;
     senderName: string;
     senderAvatar: string;
-    content: string;
-    channel: string;
+    content?: string;
+    text?: string;
+    channel?: string;
+    receiverId?: string;
     timestamp: string;
   }) {
     return prisma.message.create({ data });
+  }
+
+  static async findMemberById(id: string) {
+    return prisma.member.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        avatar: true,
+      },
+    });
   }
 }
