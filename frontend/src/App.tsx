@@ -254,7 +254,7 @@ export default function App() {
       const res = await fetch('/api/erp/task/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId, status })
+        body: JSON.stringify({ taskId, status, actorId: currentMemberId })
       });
       if (res.ok) {
         const data = await res.json();
@@ -265,6 +265,78 @@ export default function App() {
       }
     } catch (err) {
       triggerAlert('error', 'Task routing modification error on standard server.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Add comment to task
+  const handleAddTaskComment = async (taskId: string, text: string) => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/erp/task/comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, authorId: currentMemberId, text })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTasks(data.state.tasks);
+        triggerAlert('success', 'Comment added.');
+      } else {
+        const err = await res.json();
+        triggerAlert('error', err.error || 'Failed to add comment.');
+      }
+    } catch (err) {
+      triggerAlert('error', 'Network failure adding comment.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update task subtasks
+  const handleUpdateTaskSubtasks = async (taskId: string, subtasks: any[]) => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/erp/task/subtasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, subtasks, actorId: currentMemberId })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTasks(data.state.tasks);
+        triggerAlert('success', 'Subtasks progress synchronized.');
+      } else {
+        const err = await res.json();
+        triggerAlert('error', err.error || 'Failed to sync subtasks.');
+      }
+    } catch (err) {
+      triggerAlert('error', 'Network failure syncing subtasks.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Full Task details update
+  const handleUpdateTaskDetails = async (taskId: string, updates: any) => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/erp/task/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, actorId: currentMemberId, ...updates })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTasks(data.state.tasks);
+        triggerAlert('success', 'Task specifications updated successfully.');
+      } else {
+        const err = await res.json();
+        triggerAlert('error', err.error || 'Failed to update task.');
+      }
+    } catch (err) {
+      triggerAlert('error', 'Network failure updating task files.');
     } finally {
       setLoading(false);
     }
@@ -1258,6 +1330,9 @@ export default function App() {
                   tasks={tasks}
                   worklogs={worklogs}
                   onUpdateTaskStatus={handleUpdateTaskStatus}
+                  onAddComment={handleAddTaskComment}
+                  onUpdateSubtasks={handleUpdateTaskSubtasks}
+                  onUpdateTaskDetails={handleUpdateTaskDetails}
                   loading={loading}
                   onUpdateUserRole={handleUpdateUserRole}
                 />

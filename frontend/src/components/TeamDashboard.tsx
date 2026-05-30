@@ -18,6 +18,7 @@ import {
   Minus
 } from 'lucide-react';
 import { TeamMember, TaskDistribution, WorkLog } from '../types';
+import TaskDetailsDialog from './TaskDetailsDialog';
 
 interface TeamDashboardProps {
   currentMember: TeamMember;
@@ -25,6 +26,9 @@ interface TeamDashboardProps {
   tasks: TaskDistribution[];
   worklogs: WorkLog[];
   onUpdateTaskStatus: (taskId: string, status: 'Pending' | 'In Progress' | 'Completed') => Promise<void>;
+  onAddComment: (taskId: string, text: string) => Promise<void>;
+  onUpdateSubtasks: (taskId: string, subtasks: any[]) => Promise<void>;
+  onUpdateTaskDetails: (taskId: string, updates: any) => Promise<void>;
   loading: boolean;
   onUpdateUserRole?: (userId: string, roleType: 'Engineer' | 'Manager') => Promise<void>;
 }
@@ -35,12 +39,16 @@ export default function TeamDashboard({
   tasks,
   worklogs,
   onUpdateTaskStatus,
+  onAddComment,
+  onUpdateSubtasks,
+  onUpdateTaskDetails,
   loading,
   onUpdateUserRole
 }: TeamDashboardProps) {
   const [roleChangingId, setRoleChangingId] = useState<string | null>(null);
   const [taskSearch, setTaskSearch] = useState('');
   const [taskPriorityFilter, setTaskPriorityFilter] = useState<'All' | 'High' | 'Medium' | 'Low'>('All');
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const isManager = currentMember.roleType === 'Manager';
 
@@ -391,7 +399,11 @@ export default function TeamDashboard({
                   const assignedByMember = members.find(m => m.id === task.assignedBy);
                   
                   return (
-                    <div key={task.id} className="p-3 bg-[#fdfcf8] border border-[#e2dfd2] rounded-2xl hover:bg-[#f4f1e8]/30 transition-colors space-y-2.5">
+                    <div 
+                      key={task.id} 
+                      className="p-3 bg-[#fdfcf8] border border-[#e2dfd2] rounded-2xl hover:bg-[#f4f1e8]/30 hover:border-[#5a6e53]/35 hover:shadow-xs transition-all space-y-2.5 cursor-pointer group text-left"
+                      onClick={() => setSelectedTaskId(task.id)}
+                    >
                       <div className="flex justify-between items-start gap-2">
                         <div className="space-y-1 text-left flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -413,7 +425,7 @@ export default function TeamDashboard({
                           </div>
                           <p className="text-[11px] text-[#7a7d75] whitespace-normal leading-relaxed">{task.description}</p>
                         </div>
-                        <div className="flex gap-1 shrink-0 flex-wrap justify-end">
+                        <div className="flex gap-1 shrink-0 flex-wrap justify-end" onClick={(e) => e.stopPropagation()}>
                           <span className={`px-2 py-0.5 text-[9px] font-bold border rounded-lg ${getPriorityBadgeColor(task.priority)}`}>
                             {task.priority}
                           </span>
@@ -439,6 +451,26 @@ export default function TeamDashboard({
                         </div>
                       </div>
 
+                      {/* Miniature progress track */}
+                      {task.subtasks && task.subtasks.length > 0 && (
+                        <div className="space-y-1 pt-0.5">
+                          <div className="flex justify-between items-center text-[9px] font-mono font-bold text-[#5a6e53]">
+                            <span className="flex items-center gap-1">🎯 Checklist Progress:</span>
+                            <span>
+                              {task.subtasks.filter(s => s.isCompleted).length} / {task.subtasks.length} done ({Math.round((task.subtasks.filter(s => s.isCompleted).length / task.subtasks.length) * 100)}%)
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-100 rounded-full h-1 overflow-hidden border border-slate-200/50">
+                            <div 
+                              className="h-full bg-emerald-600 transition-all duration-300" 
+                              style={{ 
+                                width: `${Math.round((task.subtasks.filter(s => s.isCompleted).length / task.subtasks.length) * 100)}%` 
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex flex-wrap items-center justify-between pt-2 border-t border-[#e2dfd2]/40 text-[10px] gap-2">
                         <div className="flex items-center gap-3">
                           {assignedToMember && (
@@ -461,8 +493,18 @@ export default function TeamDashboard({
                         </div>
                       </div>
 
+                      {/* Comments count indicator and expand prompt */}
+                      <div className="flex justify-between items-center text-[9px] text-[#7a7d75] font-mono font-bold bg-[#f4f1e8]/30 p-1.5 rounded-xl border border-[#e2dfd2]/40 group-hover:bg-[#f4f1e8]/50 group-hover:border-[#e2dfd2]/70 transition-colors">
+                        <span className="flex items-center gap-1 font-sans">
+                          💬 {task.comments?.length || 0} communication notes
+                        </span>
+                        <span className="text-[#5a6e53] font-bold uppercase underline tracking-wider group-hover:text-stone-700">
+                          🔍 Expanded Specs & History →
+                        </span>
+                      </div>
+
                       {/* Quick States Controller of tasks (Engineers can change status of tasks assigned to them) */}
-                      <div className="flex justify-end gap-1 px-1 pt-1">
+                      <div className="flex justify-end gap-1 px-1 pt-1" onClick={(e) => e.stopPropagation()}>
                         {task.status !== 'Pending' && (
                           <button
                             onClick={() => onUpdateTaskStatus(task.id, 'Pending')}
@@ -499,6 +541,25 @@ export default function TeamDashboard({
           })()}
         </div>
       </div>
+
+      {/* Expanded task details modal overlay */}
+      {selectedTaskId && (() => {
+        const selectedTask = tasks.find(t => t.id === selectedTaskId);
+        if (!selectedTask) return null;
+        return (
+          <TaskDetailsDialog
+            task={selectedTask}
+            members={members}
+            currentMember={currentMember}
+            onClose={() => setSelectedTaskId(null)}
+            onUpdateStatus={onUpdateTaskStatus}
+            onAddComment={onAddComment}
+            onUpdateSubtasks={onUpdateSubtasks}
+            onUpdateDetails={onUpdateTaskDetails}
+            loading={loading}
+          />
+        );
+      })()}
 
     </div>
   );

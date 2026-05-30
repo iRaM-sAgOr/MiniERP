@@ -320,6 +320,27 @@ function readDB() {
         task.endDate = task.dueDate || new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
         changed = true;
       }
+      if (!task.comments) {
+        task.comments = [];
+        changed = true;
+      }
+      if (!task.history || task.history.length === 0) {
+        task.history = [
+          {
+            id: "h_mig_" + Math.random().toString(36).substr(2, 9),
+            actorId: task.assignedBy || "system",
+            actorName: "System",
+            type: "creation",
+            detail: "Task initialized and scheduled",
+            timestamp: task.createdAt || new Date().toISOString()
+          }
+        ];
+        changed = true;
+      }
+      if (!task.subtasks) {
+        task.subtasks = [];
+        changed = true;
+      }
       if (changed) {
         dirty = true;
       }
@@ -606,6 +627,8 @@ app.post("/api/erp/task", (req, res) => {
   const defaultStart = new Date().toISOString().split("T")[0];
   const defaultEnd = dueDate || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
+  const creator = db.members.find((m: any) => m.id === assignedBy) || { name: "System" };
+
   const newTask = {
     id: taskId,
     title,
@@ -620,7 +643,19 @@ app.post("/api/erp/task", (req, res) => {
     estimatedHours: estimatedHours !== undefined ? Number(estimatedHours) : 10,
     actualHours: 0,
     startDate: startDate || defaultStart,
-    endDate: endDate || defaultEnd
+    endDate: endDate || defaultEnd,
+    comments: [] as any[],
+    history: [
+      {
+        id: "h_" + Math.random().toString(36).substr(2, 9),
+        actorId: assignedBy,
+        actorName: creator.name,
+        type: "creation",
+        detail: `Task assigned and scheduled under ${projectName || "Monolith Core"}`,
+        timestamp: new Date().toISOString()
+      }
+    ] as any[],
+    subtasks: [] as any[]
   };
 
   db.tasks.push(newTask);
@@ -629,11 +664,11 @@ app.post("/api/erp/task", (req, res) => {
   res.json({ success: true, task: newTask, state: db });
 });
 
-// 5. Update distributed task status
+// 5. Update distributed task status and details
 app.post("/api/erp/task/update", (req, res) => {
-  const { taskId, status } = req.body;
-  if (!taskId || !status) {
-    return res.status(400).json({ error: "Missing taskId or status" });
+  const { taskId, status, title, description, priority, estimatedHours, dueDate, startDate, endDate, projectName, actorId } = req.body;
+  if (!taskId) {
+    return res.status(400).json({ error: "Missing taskId" });
   }
 
   const db = readDB();
@@ -642,7 +677,192 @@ app.post("/api/erp/task/update", (req, res) => {
     return res.status(404).json({ error: "Task not found" });
   }
 
-  task.status = status;
+  task.comments = task.comments || [];
+  task.history = task.history || [];
+  task.subtasks = task.subtasks || [];
+
+  const actor = db.members.find((m: any) => m.id === actorId) || { name: "System" };
+
+  if (status && task.status !== status) {
+    task.history.push({
+      id: "h_" + Math.random().toString(36).substr(2, 9),
+      actorId: actorId || "system",
+      actorName: actor.name,
+      type: "status_change",
+      detail: `Changed status from "${task.status}" to "${status}"`,
+      timestamp: new Date().toISOString()
+    });
+    task.status = status;
+  }
+
+  if (title && task.title !== title) {
+    task.history.push({
+      id: "h_" + Math.random().toString(36).substr(2, 9),
+      actorId: actorId || "system",
+      actorName: actor.name,
+      type: "edit",
+      detail: `Renamed task to "${title}"`,
+      timestamp: new Date().toISOString()
+    });
+    task.title = title;
+  }
+
+  if (description !== undefined && task.description !== description) {
+    task.history.push({
+      id: "h_" + Math.random().toString(36).substr(2, 9),
+      actorId: actorId || "system",
+      actorName: actor.name,
+      type: "edit",
+      detail: `Updated instructions description`,
+      timestamp: new Date().toISOString()
+    });
+    task.description = description;
+  }
+
+  if (priority && task.priority !== priority) {
+    task.history.push({
+      id: "h_" + Math.random().toString(36).substr(2, 9),
+      actorId: actorId || "system",
+      actorName: actor.name,
+      type: "edit",
+      detail: `Updated priority from "${task.priority}" to "${priority}"`,
+      timestamp: new Date().toISOString()
+    });
+    task.priority = priority;
+  }
+
+  if (estimatedHours !== undefined && Number(estimatedHours) !== task.estimatedHours) {
+    task.history.push({
+      id: "h_" + Math.random().toString(36).substr(2, 9),
+      actorId: actorId || "system",
+      actorName: actor.name,
+      type: "edit",
+      detail: `Modified allocated time to ${estimatedHours} hours`,
+      timestamp: new Date().toISOString()
+    });
+    task.estimatedHours = Number(estimatedHours);
+  }
+
+  if (startDate && task.startDate !== startDate) {
+    task.startDate = startDate;
+  }
+
+  if (endDate && task.endDate !== endDate) {
+    task.endDate = endDate;
+    task.dueDate = endDate;
+  }
+
+  if (projectName && task.projectName !== projectName) {
+    task.projectName = projectName;
+  }
+
+  writeDB(db);
+  res.json({ success: true, task, state: db });
+});
+
+// 5a. Comment on distributed task
+app.post("/api/erp/task/comment", (req, res) => {
+  const { taskId, authorId, text } = req.body;
+  if (!taskId || !authorId || !text || !text.trim()) {
+    return res.status(400).json({ error: "Missing taskId, authorId, or comment text" });
+  }
+
+  const db = readDB();
+  const task = db.tasks.find((t: any) => t.id === taskId);
+  if (!task) {
+    return res.status(404).json({ error: "Task not found" });
+  }
+
+  const author = db.members.find((m: any) => m.id === authorId) || { name: "Guest Developer", avatar: "" };
+  const commentId = "c_" + Math.random().toString(36).substr(2, 9);
+  
+  const newComment = {
+    id: commentId,
+    authorId,
+    authorName: author.name,
+    authorAvatar: author.avatar || "",
+    text: text.trim(),
+    createdAt: new Date().toISOString()
+  };
+
+  task.comments = task.comments || [];
+  task.comments.push(newComment);
+
+  task.history = task.history || [];
+  task.history.push({
+    id: "h_" + Math.random().toString(36).substr(2, 9),
+    actorId: authorId,
+    actorName: author.name,
+    type: "comment",
+    detail: `Added comment: "${text.trim().length > 30 ? text.trim().substring(0, 30) + "..." : text.trim()}"`,
+    timestamp: new Date().toISOString()
+  });
+
+  writeDB(db);
+  res.json({ success: true, task, state: db });
+});
+
+// 5b. Update subtask list of a distributed task
+app.post("/api/erp/task/subtasks", (req, res) => {
+  const { taskId, subtasks, actorId } = req.body;
+  if (!taskId || !Array.isArray(subtasks)) {
+    return res.status(400).json({ error: "Missing taskId or subtasks definition list" });
+  }
+
+  const db = readDB();
+  const task = db.tasks.find((t: any) => t.id === taskId);
+  if (!task) {
+    return res.status(404).json({ error: "Task not found" });
+  }
+
+  task.subtasks = task.subtasks || [];
+  task.history = task.history || [];
+
+  const oldSubtasks = task.subtasks;
+  const actor = db.members.find((m: any) => m.id === actorId) || { name: "System" };
+
+  // Detect additions & state toggling
+  subtasks.forEach((newSub: any) => {
+    const oldSub = oldSubtasks.find((o: any) => o.id === newSub.id);
+    if (oldSub) {
+      if (oldSub.isCompleted !== newSub.isCompleted) {
+        task.history.push({
+          id: "h_" + Math.random().toString(36).substr(2, 9),
+          actorId: actorId || "system",
+          actorName: actor.name,
+          type: "subtask_toggle",
+          detail: `${newSub.isCompleted ? "Completed" : "Reopened"} subtask: "${newSub.title}"`,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } else {
+      task.history.push({
+        id: "h_" + Math.random().toString(36).substr(2, 9),
+        actorId: actorId || "system",
+        actorName: actor.name,
+        type: "subtask_add",
+        detail: `Added subtask item: "${newSub.title}"`,
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // Detect deletions
+  oldSubtasks.forEach((oldSub: any) => {
+    const deleted = !subtasks.some((n: any) => n.id === oldSub.id);
+    if (deleted) {
+      task.history.push({
+        id: "h_" + Math.random().toString(36).substr(2, 9),
+        actorId: actorId || "system",
+        actorName: actor.name,
+        type: "subtask_delete",
+        detail: `Removed subtask: "${oldSub.title}"`,
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  task.subtasks = subtasks;
   writeDB(db);
 
   res.json({ success: true, task, state: db });

@@ -65,6 +65,30 @@ export interface WorkLog {
   submittedAt: string;
 }
 
+export interface TaskComment {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorAvatar: string;
+  text: string;
+  createdAt: string;
+}
+
+export interface TaskHistoryEvent {
+  id: string;
+  actorId: string;
+  actorName: string;
+  type: string; // e.g. 'status_change', 'comment', 'subtask_toggle', 'creation', 'edit'
+  detail: string;
+  timestamp: string;
+}
+
+export interface TaskSubtask {
+  id: string;
+  title: string;
+  isCompleted: boolean;
+}
+
 export interface TaskDistribution {
   id: string;
   title: string;
@@ -80,4 +104,7 @@ export interface TaskDistribution {
   actualHours?: number;      // Total spent time accumulated from logs
   startDate?: string;        // Assigned work start date
   endDate?: string;          // Assigned work end date
+  comments?: TaskComment[];
+  history?: TaskHistoryEvent[];
+  subtasks?: TaskSubtask[];
 }
