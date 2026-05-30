@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { getRequestUserId } from "../middleware/auth.middleware.js";
 import { ErpService } from "../services/erp.service.js";
+import { MemberService } from "../services/member.service.js";
 
 export const getManagerState = async (req: Request, res: Response) => {
   try {
@@ -155,5 +156,40 @@ export const resetDatabase = async (req: Request, res: Response) => {
     res.json({ state });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+};
+
+export const forgotPassword = async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+    const result = await MemberService.requestPasswordReset(email || "");
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+export const resetPassword = async (req: Request, res: Response) => {
+  try {
+    const { email, token, newPassword } = req.body;
+    const result = await MemberService.resetPassword(email || "", token || "", newPassword || "");
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+export const managerGeneratePasswordReset = async (req: Request, res: Response) => {
+  try {
+    const requesterId = getRequestUserId(req);
+    if (!requesterId) {
+      return res.status(401).json({ error: "JWT token is required." });
+    }
+
+    const { memberId } = req.body;
+    const result = await MemberService.generatePasswordResetByManager(requesterId, memberId || "");
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
   }
 };

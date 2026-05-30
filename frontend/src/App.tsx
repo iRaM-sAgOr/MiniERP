@@ -68,6 +68,10 @@ export default function App() {
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [resetEmail, setResetEmail] = useState('');
 
   // Direct Message selected conversation & thread typing state
   const [selectedChatUserId, setSelectedChatUserId] = useState<string>('');
@@ -518,6 +522,79 @@ export default function App() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!forgotEmail.trim()) {
+      triggerAlert('error', 'Please enter your account email.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await apiFetch('/api/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email: forgotEmail.trim() })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        triggerAlert('info', data.message || 'If the account exists, a recovery token has been generated.');
+      } else {
+        const err = await res.json();
+        triggerAlert('error', err.error || 'Unable to start password recovery.');
+      }
+    } catch {
+      triggerAlert('error', 'Network failure while requesting password recovery.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetEmail.trim() || !resetToken.trim() || !resetNewPassword.trim()) {
+      triggerAlert('error', 'Please fill email, reset token, and new password.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await apiFetch('/api/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: resetEmail.trim(),
+          token: resetToken.trim(),
+          newPassword: resetNewPassword
+        })
+      });
+
+      if (res.ok) {
+        triggerAlert('success', 'Password has been reset. Please login with your new password.');
+        setResetToken('');
+        setResetNewPassword('');
+      } else {
+        const err = await res.json();
+        triggerAlert('error', err.error || 'Unable to reset password.');
+      }
+    } catch {
+      triggerAlert('error', 'Network failure while resetting password.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleManagerGeneratePasswordReset = async (memberId: string) => {
+    const res = await apiFetch('/api/manager/password-reset/generate', {
+      method: 'POST',
+      body: JSON.stringify({ memberId })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to generate password reset token.');
+    }
+
+    return res.json();
+  };
+
   // Handle direct messaging between manager and engineers
   const handleSendMessage = async (receiverId: string, text: string) => {
     const normalizedText = text.trim();
@@ -791,6 +868,56 @@ export default function App() {
                       >
                         Verify & Login
                       </button>
+
+                      <div className="pt-3 border-t border-[#e2dfd2] space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <input
+                            type="email"
+                            placeholder="Forgot password email"
+                            value={forgotEmail}
+                            onChange={e => setForgotEmail(e.target.value)}
+                            className="sm:col-span-2 text-xs bg-[#fdfcf8] border border-[#e2dfd2] rounded-xl px-3 py-2 text-[#3d403a] placeholder-slate-400 focus:outline-[#5a6e53]"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleForgotPassword}
+                            className="text-xs font-bold px-3 py-2 rounded-xl border border-[#d4a373] text-[#d4a373] hover:bg-[#f4f1e8] cursor-pointer"
+                          >
+                            Forgot Password
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <input
+                            type="email"
+                            placeholder="Reset email"
+                            value={resetEmail}
+                            onChange={e => setResetEmail(e.target.value)}
+                            className="text-xs bg-[#fdfcf8] border border-[#e2dfd2] rounded-xl px-3 py-2 text-[#3d403a] placeholder-slate-400 focus:outline-[#5a6e53]"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Recovery token"
+                            value={resetToken}
+                            onChange={e => setResetToken(e.target.value)}
+                            className="text-xs bg-[#fdfcf8] border border-[#e2dfd2] rounded-xl px-3 py-2 text-[#3d403a] placeholder-slate-400 focus:outline-[#5a6e53]"
+                          />
+                          <input
+                            type="password"
+                            placeholder="New password"
+                            value={resetNewPassword}
+                            onChange={e => setResetNewPassword(e.target.value)}
+                            className="text-xs bg-[#fdfcf8] border border-[#e2dfd2] rounded-xl px-3 py-2 text-[#3d403a] placeholder-slate-400 focus:outline-[#5a6e53]"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleResetPassword}
+                          className="w-full py-2 text-xs font-bold rounded-xl border border-[#5a6e53] text-[#5a6e53] hover:bg-[#f4f1e8] cursor-pointer"
+                        >
+                          Reset Password With Token
+                        </button>
+                      </div>
                     </form>
                   </div>
                 ) : (
@@ -1418,6 +1545,7 @@ export default function App() {
                 <TeamDashboard
                   currentMember={currentMember}
                   members={members}
+                  punches={punches}
                   tasks={tasks}
                   worklogs={worklogs}
                   onUpdateTaskStatus={handleUpdateTaskStatus}
@@ -1426,6 +1554,7 @@ export default function App() {
                   onUpdateTaskDetails={handleUpdateTaskDetails}
                   loading={loading}
                   onUpdateUserRole={handleUpdateUserRole}
+                  onGeneratePasswordResetToken={handleManagerGeneratePasswordReset}
                 />
               )}
 

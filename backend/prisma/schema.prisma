@@ -26,6 +26,21 @@ model Member {
   workLogs       WorkLog[]
   tasksAssigned  Task[]         @relation("AssignedTo")
   tasksCreated   Task[]         @relation("AssignedBy")
+  resetTokens    PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id            String   @id
+  memberId      String
+  member        Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  tokenHash     String
+  expiresAt     String
+  usedAt        String?
+  createdAt     String
+  requestedById String?
+  mode          String   // "SELF" | "MANAGER"
+
+  @@index([memberId, tokenHash])
 }
 
 model Project {

@@ -23,6 +23,7 @@ import TaskDetailsDialog from './TaskDetailsDialog';
 interface TeamDashboardProps {
   currentMember: TeamMember;
   members: TeamMember[];
+  punches: any[];
   tasks: TaskDistribution[];
   worklogs: WorkLog[];
   onUpdateTaskStatus: (taskId: string, status: 'Pending' | 'In Progress' | 'Completed') => Promise<void>;
@@ -31,11 +32,13 @@ interface TeamDashboardProps {
   onUpdateTaskDetails: (taskId: string, updates: any) => Promise<void>;
   loading: boolean;
   onUpdateUserRole?: (userId: string, roleType: 'Engineer' | 'Manager') => Promise<void>;
+  onGeneratePasswordResetToken?: (memberId: string) => Promise<{ member: { id: string; name: string; email: string }; resetToken: string; expiresAt: string }>;
 }
 
 export default function TeamDashboard({
   currentMember,
   members,
+  punches,
   tasks,
   worklogs,
   onUpdateTaskStatus,
@@ -43,7 +46,8 @@ export default function TeamDashboard({
   onUpdateSubtasks,
   onUpdateTaskDetails,
   loading,
-  onUpdateUserRole
+  onUpdateUserRole,
+  onGeneratePasswordResetToken
 }: TeamDashboardProps) {
   const [roleChangingId, setRoleChangingId] = useState<string | null>(null);
   const [taskSearch, setTaskSearch] = useState('');
@@ -51,12 +55,16 @@ export default function TeamDashboard({
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedHistoryMemberId, setSelectedHistoryMemberId] = useState(currentMember.id);
   const [historyPage, setHistoryPage] = useState(1);
+  const [resetTargetMemberId, setResetTargetMemberId] = useState('');
+  const [generatedResetPreview, setGeneratedResetPreview] = useState<{ memberName: string; token: string; expiresAt: string } | null>(null);
+  const [generatingReset, setGeneratingReset] = useState(false);
 
   const isManager = currentMember.roleType === 'Manager';
   const pageSize = 5;
 
   // Days of the week representing break times
   const todayDayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  const todayDateKey = new Date().toISOString().split('T')[0];
 
   const getPriorityBadgeColor = (prio: TaskDistribution['priority']) => {
     switch (prio) {
@@ -109,6 +117,33 @@ export default function TeamDashboard({
   const historyPageItems = historyLogs.slice((safeHistoryPage - 1) * pageSize, safeHistoryPage * pageSize);
   const historyTotalHours = historyLogs.reduce((sum, wl) => sum + wl.items.reduce((acc, it) => acc + it.hoursSpent, 0), 0);
 
+  const engineerMembers = members.filter(member => member.roleType === 'Engineer');
+  const managerAnalyticsRows = engineerMembers.map(engineer => {
+    const engineerWorklogs = worklogs.filter(worklog => worklog.userId === engineer.id);
+    const dailyHoursMap = new Map<string, number>();
+    for (const worklog of engineerWorklogs) {
+      const dayHours = worklog.items.reduce((sum, item) => sum + item.hoursSpent, 0);
+      dailyHoursMap.set(worklog.date, (dailyHoursMap.get(worklog.date) || 0) + dayHours);
+    }
+    const dailyHours = Array.from(dailyHoursMap.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .slice(0, 7)
+      .map(([date, hours]) => ({ date, hours: Number(hours.toFixed(2)) }));
+
+    const todayPunchMinutes = punches
+      .filter((p: any) => p.userId === engineer.id && p.date === todayDateKey)
+      .reduce((sum: number, p: any) => sum + (p.totalMinutes || 0), 0);
+
+    const completedTasks = tasks.filter(task => task.assignedTo === engineer.id && task.status === 'Completed').length;
+
+    return {
+      engineer,
+      dailyHours,
+      todayPunchMinutes,
+      completedTasks,
+    };
+  });
+
   useEffect(() => {
     if (historyPage > historyPageCount) {
       setHistoryPage(historyPageCount);
@@ -122,6 +157,21 @@ export default function TeamDashboard({
       await onUpdateUserRole(userId, newRoleType);
     } finally {
       setRoleChangingId(null);
+    }
+  };
+
+  const handleGenerateResetToken = async () => {
+    if (!onGeneratePasswordResetToken || !resetTargetMemberId) return;
+    setGeneratingReset(true);
+    try {
+      const result = await onGeneratePasswordResetToken(resetTargetMemberId);
+      setGeneratedResetPreview({
+        memberName: result.member.name,
+        token: result.resetToken,
+        expiresAt: result.expiresAt,
+      });
+    } finally {
+      setGeneratingReset(false);
     }
   };
 
@@ -232,6 +282,64 @@ export default function TeamDashboard({
           ) : (
             /* Manager Roster Board (Full Audit, Email, Agreement & Database role changing) */
             <div className="space-y-4">
+              <div className="bg-white border border-[#e2dfd2]/80 p-3 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-extrabold text-[#2d3a2a] uppercase tracking-wider font-mono">Engineer Productivity Dashboard</h4>
+                  <span className="text-[10px] text-[#7a7d75] font-mono">Daily worklog, punch time, completed tasks</span>
+                </div>
+                <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                  {managerAnalyticsRows.map(row => (
+                    <div key={row.engineer.id} className="border border-[#e2dfd2] rounded-xl p-2 bg-[#fdfcf8]">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-[#3d403a]">{row.engineer.name}</span>
+                        <span className="text-[10px] font-mono text-[#5a6e53]">Completed Tasks: {row.completedTasks}</span>
+                      </div>
+                      <div className="mt-1 text-[11px] text-[#7a7d75] font-mono">Today's punch-based minutes: <strong className="text-[#3d403a]">{row.todayPunchMinutes}</strong></div>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {row.dailyHours.length > 0 ? row.dailyHours.map(item => (
+                          <span key={`${row.engineer.id}-${item.date}`} className="text-[10px] px-1.5 py-0.5 rounded border border-[#e2dfd2] bg-[#f4f1e8] text-[#3d403a] font-mono">
+                            {item.date}: {item.hours}h
+                          </span>
+                        )) : (
+                          <span className="text-[10px] text-[#7a7d75] italic">No recent worklogs.</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {onGeneratePasswordResetToken && (
+                <div className="bg-white border border-[#e2dfd2]/80 p-3 rounded-2xl space-y-2">
+                  <h4 className="text-xs font-extrabold text-[#2d3a2a] uppercase tracking-wider font-mono">Manager Assisted Password Recovery</h4>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={resetTargetMemberId}
+                      onChange={(e) => setResetTargetMemberId(e.target.value)}
+                      className="flex-1 text-xs bg-[#fdfcf8] border border-[#e2dfd2] rounded-xl px-2 py-1.5 text-[#3d403a]"
+                    >
+                      <option value="">Select engineer account</option>
+                      {engineerMembers.map(member => (
+                        <option key={member.id} value={member.id}>{member.name} ({member.email})</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={handleGenerateResetToken}
+                      disabled={!resetTargetMemberId || generatingReset}
+                      className="px-3 py-1.5 text-xs font-bold rounded-xl border border-[#5a6e53] text-[#5a6e53] hover:bg-[#f4f1e8] disabled:opacity-40 cursor-pointer"
+                    >
+                      Generate Token
+                    </button>
+                  </div>
+                  {generatedResetPreview && (
+                    <div className="text-[11px] bg-[#f4f1e8]/40 border border-[#e2dfd2] rounded-xl p-2 text-left">
+                      <p><strong>{generatedResetPreview.memberName}</strong> recovery token: <span className="font-mono text-[#5a6e53]">{generatedResetPreview.token}</span></p>
+                      <p className="text-[#7a7d75]">Expires: {new Date(generatedResetPreview.expiresAt).toLocaleString()}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
                 {members.map((member) => {
                   const memberLog = worklogs.find(wl => wl.userId === member.id);

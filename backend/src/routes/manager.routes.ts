@@ -5,6 +5,7 @@ import {
   createTask,
   deleteProject,
   getManagerState,
+  managerGeneratePasswordReset,
   punch,
   resetDatabase,
   sendEmail,
@@ -31,6 +32,7 @@ router.post("/task/subtasks", updateTaskSubtasks);
 router.post("/project", createProject);
 router.post("/project/delete", deleteProject);
 router.post("/update-role", updateRole);
+router.post("/password-reset/generate", managerGeneratePasswordReset);
 router.post("/message", sendMessage);
 router.post("/reset", resetDatabase);
 
