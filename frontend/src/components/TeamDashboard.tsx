@@ -391,18 +391,23 @@ export default function TeamDashboard({
                   const assignedByMember = members.find(m => m.id === task.assignedBy);
                   
                   return (
-                    <div key={task.id} className="p-3 bg-[#fdfcf8] border border-[#e2dfd2] rounded-2xl hover:bg-[#f4f1e8]/30 transition-colors space-y-2">
+                    <div key={task.id} className="p-3 bg-[#fdfcf8] border border-[#e2dfd2] rounded-2xl hover:bg-[#f4f1e8]/30 transition-colors space-y-2.5">
                       <div className="flex justify-between items-start gap-2">
-                        <div className="space-y-0.5 text-left flex-1 min-w-0">
+                        <div className="space-y-1 text-left flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
+                            {task.projectName && (
+                              <span className="text-[9px] bg-emerald-50 text-[#5a6e53] font-extrabold font-mono px-2 py-0.5 rounded border border-emerald-100 uppercase tracking-wider">
+                                📂 {task.projectName}
+                              </span>
+                            )}
                             {task.priority === 'High' && (
-                              <ArrowUpCircle className="w-4 h-4 text-rose-600 shrink-0" title="High Priority" />
+                              <ArrowUpCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" title="High Priority" />
                             )}
                             {task.priority === 'Medium' && (
-                              <Minus className="w-4 h-4 text-amber-500 shrink-0 bg-amber-50 rounded-full border border-amber-300" title="Medium Priority" />
+                              <Minus className="w-3.5 h-3.5 text-amber-500 shrink-0 bg-amber-50 rounded-full border border-amber-300" title="Medium Priority" />
                             )}
                             {task.priority === 'Low' && (
-                              <ArrowDownCircle className="w-4 h-4 text-blue-500 shrink-0" title="Low Priority" />
+                              <ArrowDownCircle className="w-3.5 h-3.5 text-blue-500 shrink-0" title="Low Priority" />
                             )}
                             <h4 className="text-xs font-extrabold text-[#3d403a] leading-tight truncate">{task.title}</h4>
                           </div>
@@ -414,6 +419,22 @@ export default function TeamDashboard({
                           </span>
                           <span className={`px-2 py-0.5 text-[9px] font-bold border rounded-lg ${getStatusBadgeColor(task.status)}`}>
                             {task.status}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Timelines and Scope actual hours tracking metrics */}
+                      <div className="flex flex-wrap shrink-0 justify-between items-center bg-[#f4f1e8]/20 p-2 border border-[#e2dfd2]/40 rounded-xl text-left gap-2">
+                        <div className="space-y-0.5">
+                          <span className="text-[#7a7d75] font-mono block uppercase text-[8px] tracking-wider font-extrabold">Work Timeline:</span>
+                          <span className="font-semibold text-[#3d403a] font-mono text-[9.5px]">{task.startDate || 'N/A'} to {task.endDate || task.dueDate || 'N/A'}</span>
+                        </div>
+                        <div className="text-right space-y-0.5">
+                          <span className="text-[#7a7d75] font-mono block uppercase text-[8px] tracking-wider font-extrabold text-right">Scope vs Logged Actuals:</span>
+                          <span className="font-mono text-[10px] text-right block">
+                            Allocated: <span className="text-slate-800 font-bold">{task.estimatedHours || 12}h</span>
+                            {" | "}
+                            Spent: <span className={`font-bold font-mono ${(task.actualHours || 0) > (task.estimatedHours || 0) ? 'text-red-500 font-extrabold' : 'text-[#3d403a]'}`}>{task.actualHours || 0}h</span>
                           </span>
                         </div>
                       </div>

@@ -1,16 +1,18 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Load environment variables
-dotenv.config();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Load environment variables from both root and backend directory as fallback
+dotenv.config();
+dotenv.config({ path: path.join(__dirname, ".env") });
 
 const app = express();
 const PORT = 3000;
@@ -42,56 +44,71 @@ const DEFAULT_MEMBERS = [
     name: "Ikramul Haq Sagor",
     email: "ikramulhaqsagor@gmail.com",
     role: "Senior Full Stack Engineer",
+    roleType: "Engineer",
     avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
     department: "Engineering",
     punchStatus: "Offline",
     isTL: false,
-    tlId: "lead-sarah"
+    tlId: "lead-sarah",
+    agreementHours: 20,
+    breakDay: "Friday"
   },
   {
     id: "lead-sarah",
     name: "Sarah Connor",
     email: "sarah.connor@monolith.io",
     role: "Engineering Team Lead",
+    roleType: "Manager",
     avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200",
     department: "Engineering",
     punchStatus: "Active",
     lastPunchTime: new Date(Date.now() - 3.5 * 60 * 60 * 1000).toISOString(), // 3.5 hours ago
-    isTL: true
+    isTL: true,
+    agreementHours: 40,
+    breakDay: "Sunday"
   },
   {
     id: "user-alex",
     name: "Alex Rivera",
     email: "alex.rivera@monolith.io",
     role: "Lead UI/UX Designer",
+    roleType: "Engineer",
     avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200",
     department: "Design",
     punchStatus: "Break",
     lastPunchTime: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
     isTL: false,
-    tlId: "lead-sarah"
+    tlId: "lead-sarah",
+    agreementHours: 10,
+    breakDay: "Monday"
   },
   {
     id: "user-maya",
     name: "Maya Peterson",
     email: "maya.p@monolith.io",
     role: "Principal Product Manager",
+    roleType: "Manager",
     avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=200",
     department: "Product",
     punchStatus: "Offline",
-    isTL: true
+    isTL: true,
+    agreementHours: 40,
+    breakDay: "Saturday"
   },
   {
     id: "user-liam",
     name: "Liam Foster",
     email: "liam.f@monolith.io",
     role: "Senior Cloud & DevOps Architect",
+    roleType: "Engineer",
     avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=200",
     department: "Engineering",
     punchStatus: "ClockedOut",
     lastPunchTime: new Date(Date.now() - 9 * 60 * 60 * 1000).toISOString(),
     isTL: false,
-    tlId: "lead-sarah"
+    tlId: "lead-sarah",
+    agreementHours: 20,
+    breakDay: "Friday"
   }
 ];
 
@@ -170,7 +187,12 @@ const DEFAULT_TASKS = [
     status: "In Progress",
     priority: "High",
     dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    projectName: "Swiss Design System",
+    estimatedHours: 16,
+    actualHours: 0,
+    startDate: new Date().toISOString().split("T")[0],
+    endDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
   },
   {
     id: "t2",
@@ -181,7 +203,12 @@ const DEFAULT_TASKS = [
     status: "Pending",
     priority: "Medium",
     dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    projectName: "Swiss Design System",
+    estimatedHours: 8,
+    actualHours: 0,
+    startDate: new Date().toISOString().split("T")[0],
+    endDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
   },
   {
     id: "t3",
@@ -192,26 +219,143 @@ const DEFAULT_TASKS = [
     status: "Completed",
     priority: "High",
     dueDate: new Date().toISOString().split("T")[0],
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
+    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    projectName: "DevOps Infrastructure",
+    estimatedHours: 12,
+    actualHours: 4.5,
+    startDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    endDate: new Date().toISOString().split("T")[0]
   }
 ];
+
+const DEFAULT_PROJECTS = [
+  { id: "p1", name: "Monolith Core", description: "Backend optimization layers & API platform", createdAt: new Date().toISOString(), createdBy: "lead-sarah" },
+  { id: "p2", name: "DevOps Infrastructure", description: "Azure deployment cluster mapping and pipeline caching", createdAt: new Date().toISOString(), createdBy: "lead-sarah" },
+  { id: "p3", name: "Swiss Design System", description: "Elegant layout, high contrast dashboard components", createdAt: new Date().toISOString(), createdBy: "lead-sarah" }
+];
+
+// Hash password with pbkdf2
+function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, "sha512").toString("hex");
+  return `${salt}:${hash}`;
+}
+
+// Verify password
+function verifyPassword(password: string, storedHash: string): boolean {
+  if (!storedHash || !storedHash.includes(":")) return false;
+  const [salt, hash] = storedHash.split(":");
+  const currentHash = crypto.pbkdf2Sync(password, salt, 1000, 64, "sha512").toString("hex");
+  return currentHash === hash;
+}
 
 // Helper to initialize and read write db file
 function readDB() {
   if (!fs.existsSync(DB_PATH)) {
+    const initializedMembers = DEFAULT_MEMBERS.map((member: any) => {
+      return {
+        ...member,
+        passwordHash: hashPassword("password123")
+      };
+    });
     const initialState = {
-      members: DEFAULT_MEMBERS,
+      members: initializedMembers,
       punches: DEFAULT_PUNCHES,
       worklogs: DEFAULT_WORKLOGS,
       tasks: DEFAULT_TASKS,
-      sentEmailsLog: [] as any[]
+      projects: DEFAULT_PROJECTS,
+      sentEmailsLog: [] as any[],
+      messages: [] as any[]
     };
     fs.writeFileSync(DB_PATH, JSON.stringify(initialState, null, 2));
     return initialState;
   }
   try {
     const raw = fs.readFileSync(DB_PATH, "utf-8");
-    return JSON.parse(raw);
+    const db = JSON.parse(raw);
+    let dirty = false;
+    
+    // Ensure lists exist
+    if (!db.messages) {
+      db.messages = [];
+      dirty = true;
+    }
+    if (!db.sentEmailsLog) {
+      db.sentEmailsLog = [];
+      dirty = true;
+    }
+    if (!db.members) {
+      db.members = DEFAULT_MEMBERS;
+      dirty = true;
+    }
+    if (!db.projects) {
+      db.projects = DEFAULT_PROJECTS;
+      dirty = true;
+    }
+    if (!db.tasks) {
+      db.tasks = DEFAULT_TASKS;
+      dirty = true;
+    }
+    
+    // Migrations on old tasks
+    db.tasks = db.tasks.map((task: any) => {
+      let changed = false;
+      if (!task.projectName) {
+        task.projectName = "Monolith Core";
+        changed = true;
+      }
+      if (task.estimatedHours === undefined) {
+        task.estimatedHours = 12;
+        changed = true;
+      }
+      if (task.actualHours === undefined) {
+        task.actualHours = 0;
+        changed = true;
+      }
+      if (!task.startDate) {
+        task.startDate = (task.createdAt || new Date().toISOString()).split("T")[0];
+        changed = true;
+      }
+      if (!task.endDate) {
+        task.endDate = task.dueDate || new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+        changed = true;
+      }
+      if (changed) {
+        dirty = true;
+      }
+      return task;
+    });
+
+    // Auto-migrate standard roster files to guarantee customizable properties
+    db.members = db.members.map((member: any) => {
+      let changed = false;
+      if (!member.roleType) {
+        member.roleType = (member.id === "lead-sarah" || member.id === "user-maya") ? "Manager" : "Engineer";
+        changed = true;
+      }
+      if (member.agreementHours === undefined) {
+        member.agreementHours = member.roleType === "Manager" ? 40 : 20;
+        changed = true;
+      }
+      if (!member.breakDay) {
+        member.breakDay = member.id === "user-alex" ? "Monday" : "Friday";
+        changed = true;
+      }
+      if (!member.passwordHash) {
+        member.passwordHash = hashPassword("password123");
+        changed = true;
+      }
+      if (changed) {
+        dirty = true;
+      }
+      return member;
+    });
+
+    if (dirty) {
+      fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
+    }
+    
+    return db;
   } catch (err) {
     console.error("Error reading database", err);
     return {
@@ -219,7 +363,9 @@ function readDB() {
       punches: DEFAULT_PUNCHES,
       worklogs: DEFAULT_WORKLOGS,
       tasks: DEFAULT_TASKS,
-      sentEmailsLog: []
+      projects: DEFAULT_PROJECTS,
+      sentEmailsLog: [],
+      messages: []
     };
   }
 }
@@ -388,6 +534,25 @@ Ensure there is no extra fluff or markdown outside of the JSON block. Do NOT inc
     submittedAt: new Date().toISOString()
   };
 
+  // Recalculate and update database tasks actual hours spent
+  function recalcActualHours(database: any) {
+    database.tasks.forEach((t: any) => {
+      t.actualHours = 0;
+    });
+    database.worklogs.forEach((wl: any) => {
+      if (wl.items && Array.isArray(wl.items)) {
+        wl.items.forEach((item: any) => {
+          if (item.taskId) {
+            const task = database.tasks.find((t: any) => t.id === item.taskId);
+            if (task) {
+              task.actualHours = (task.actualHours || 0) + Number(item.hoursSpent || 0);
+            }
+          }
+        });
+      }
+    });
+  }
+
   // Replace any existing work log for this user today, or push
   const existingLogIndex = db.worklogs.findIndex((wl: any) => wl.userId === userId && wl.date === todayStr);
   if (existingLogIndex >= 0) {
@@ -396,19 +561,51 @@ Ensure there is no extra fluff or markdown outside of the JSON block. Do NOT inc
     db.worklogs.push(newWorkLog);
   }
 
+  recalcActualHours(db);
   writeDB(db);
   res.json({ success: true, worklog: newWorkLog, state: db });
 });
 
-// 4. Distribute a task to a remote member
+// 3a. Create new project portfolio
+app.post("/api/erp/project", (req, res) => {
+  const { name, description, createdBy } = req.body;
+  if (!name || !createdBy) {
+    return res.status(400).json({ error: "Missing required core project fields: name, createdBy" });
+  }
+
+  const db = readDB();
+  const exists = db.projects.some((p: any) => p.name.trim().toLowerCase() === name.trim().toLowerCase());
+  if (exists) {
+    return res.status(400).json({ error: "A project with this name already exists in the system." });
+  }
+
+  const newProj = {
+    id: "p_" + Math.random().toString(36).substr(2, 9),
+    name: name.trim(),
+    description: description || "",
+    createdAt: new Date().toISOString(),
+    createdBy
+  };
+
+  db.projects.push(newProj);
+  writeDB(db);
+
+  res.json({ success: true, project: newProj, state: db });
+});
+
+// 4. Distribute a task to a remote member (Manager or Engineer self-assigned)
 app.post("/api/erp/task", (req, res) => {
-  const { title, description, assignedTo, assignedBy, priority, dueDate } = req.body;
+  const { title, description, assignedTo, assignedBy, priority, dueDate, projectName, estimatedHours, startDate, endDate } = req.body;
   if (!title || !assignedTo || !assignedBy) {
     return res.status(400).json({ error: "Missing task distribution properties" });
   }
 
   const db = readDB();
   const taskId = "t_" + Math.random().toString(36).substr(2, 9);
+  
+  const defaultStart = new Date().toISOString().split("T")[0];
+  const defaultEnd = dueDate || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
   const newTask = {
     id: taskId,
     title,
@@ -417,8 +614,13 @@ app.post("/api/erp/task", (req, res) => {
     assignedBy,
     status: "Pending",
     priority: priority || "Medium",
-    dueDate: dueDate || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-    createdAt: new Date().toISOString()
+    dueDate: endDate || defaultEnd,
+    createdAt: new Date().toISOString(),
+    projectName: projectName || "Monolith Core",
+    estimatedHours: estimatedHours !== undefined ? Number(estimatedHours) : 10,
+    actualHours: 0,
+    startDate: startDate || defaultStart,
+    endDate: endDate || defaultEnd
   };
 
   db.tasks.push(newTask);
@@ -481,6 +683,134 @@ app.post("/api/erp/send-email", (req, res) => {
   res.json({ success: true, receipt: mailReceipt, state: db });
 });
 
+// 6a. Register new remote applicant as Engineer ('isTL: false' and 'roleType: "Engineer"')
+app.post("/api/erp/register", (req, res) => {
+  const { name, email, department, agreementHours, breakDay, role, password } = req.body;
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: "Missing required fields: name, email, password" });
+  }
+
+  const db = readDB();
+  const emailLower = email.trim().toLowerCase();
+  const existing = db.members.find((m: any) => m.email.toLowerCase() === emailLower);
+  
+  if (existing) {
+    return res.status(400).json({ error: "An employee with this email address already exists." });
+  }
+
+  const newId = "user-" + Math.random().toString(36).substr(2, 9);
+  
+  // Hash the password securely securely using PBKDF2 function
+  const passwordHash = hashPassword(password);
+  
+  const newMember = {
+    id: newId,
+    name: name.trim(),
+    email: emailLower,
+    role: role ? role.trim() : "Software Engineer",
+    roleType: "Engineer", // MUST be registered as engineer first!
+    avatar: `https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200`,
+    department: department || "Engineering",
+    punchStatus: "Offline",
+    isTL: false,
+    tlId: "lead-sarah",
+    agreementHours: Number(agreementHours) || 20,
+    breakDay: breakDay || "Friday",
+    passwordHash
+  };
+
+  db.members.push(newMember);
+  writeDB(db);
+
+  const { passwordHash: _, ...memberWithoutHash } = newMember;
+  res.json({ success: true, member: memberWithoutHash, state: db });
+});
+
+// 6a-1. Validate credentials and log in secure session
+app.post("/api/erp/login", (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: "Missing required fields: email, password" });
+  }
+
+  const db = readDB();
+  const emailLower = email.trim().toLowerCase();
+  const member = db.members.find((m: any) => m.email.toLowerCase() === emailLower);
+
+  if (!member) {
+    return res.status(401).json({ error: "User profile with this email address was not found." });
+  }
+
+  // Support password verification safely
+  const isValid = verifyPassword(password, member.passwordHash || "");
+  if (!isValid) {
+    return res.status(401).json({ error: "Incorrect credentials. Please verify and try again." });
+  }
+
+  // Authentication successful! Return the full profile without hash field
+  const { passwordHash, ...profileWithoutPassword } = member;
+  res.json({ success: true, member: profileWithoutPassword });
+});
+
+// 6b. Directly promote/demote or update user roles ("from db we will change the role as manager")
+app.post("/api/erp/update-role", (req, res) => {
+  const { userId, roleType } = req.body;
+  if (!userId || !roleType) {
+    return res.status(400).json({ error: "Missing required parameters: userId, roleType" });
+  }
+
+  const db = readDB();
+  const member = db.members.find((m: any) => m.id === userId);
+  
+  if (!member) {
+    return res.status(404).json({ error: "Member not found" });
+  }
+
+  member.roleType = roleType; // Promote or demote
+  if (roleType === "Manager") {
+    member.role = "Team Manager";
+    member.isTL = true; // Managers get allocation privileges too
+  } else {
+    member.role = "Software Engineer";
+    member.isTL = false;
+  }
+
+  writeDB(db);
+  res.json({ success: true, member, state: db });
+});
+
+// 6c. Send a direct chat message between managers and engineers
+app.post("/api/erp/message", (req, res) => {
+  const { senderId, receiverId, text } = req.body;
+  if (!senderId || !receiverId || !text) {
+    return res.status(400).json({ error: "Missing senderId, receiverId or text" });
+  }
+
+  const db = readDB();
+  if (!db.messages) {
+    db.messages = [];
+  }
+
+  const sender = db.members.find((m: any) => m.id === senderId);
+  if (!sender) {
+    return res.status(404).json({ error: "Sender not found" });
+  }
+
+  const newMessage = {
+    id: "msg_" + Math.random().toString(36).substr(2, 9),
+    senderId,
+    receiverId,
+    senderName: sender.name,
+    text: text.trim(),
+    timestamp: new Date().toISOString()
+  };
+
+  db.messages.push(newMessage);
+  writeDB(db);
+
+  res.json({ success: true, message: newMessage, state: db });
+});
+
 // 7. Reset entire ERP database back to startup state (seed)
 app.post("/api/erp/reset", (req, res) => {
   const initialState = {
@@ -488,7 +818,9 @@ app.post("/api/erp/reset", (req, res) => {
     punches: DEFAULT_PUNCHES,
     worklogs: DEFAULT_WORKLOGS,
     tasks: DEFAULT_TASKS,
-    sentEmailsLog: []
+    projects: DEFAULT_PROJECTS,
+    sentEmailsLog: [],
+    messages: []
   };
   writeDB(initialState);
   res.json({ success: true, state: initialState });

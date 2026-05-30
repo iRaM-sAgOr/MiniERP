@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Sparkles, FolderKanban, Check, ChevronRight } from 'lucide-react';
-import { TeamMember, LogItem, WorkLog } from '../types';
+import { TeamMember, LogItem, WorkLog, TaskDistribution } from '../types';
 
 interface WorkLogFormProps {
   currentMember: TeamMember;
@@ -8,6 +8,7 @@ interface WorkLogFormProps {
   savedWorkLog: WorkLog | null;
   onSubmitLog: (items: LogItem[], tlId: string) => Promise<void>;
   loading: boolean;
+  tasks?: TaskDistribution[];
 }
 
 const CATEGORIES: LogItem['category'][] = ['Feature', 'Bugfix', 'Meeting', 'Research', 'Documentation', 'Support'];
@@ -17,7 +18,8 @@ export default function WorkLogForm({
   teamLeads,
   savedWorkLog,
   onSubmitLog,
-  loading
+  loading,
+  tasks = []
 }: WorkLogFormProps) {
   const [items, setItems] = useState<LogItem[]>([
     { project: 'Monolith Core', category: 'Feature', description: 'Implemented dynamic route bundle preloads with robust Vite hooks.', hoursSpent: 4 },
@@ -29,7 +31,11 @@ export default function WorkLogForm({
   const [description, setDescription] = useState('');
   const [hoursSpent, setHoursSpent] = useState<number>(1);
   const [githubLink, setGithubLink] = useState('');
+  const [associatedTaskId, setAssociatedTaskId] = useState('');
   
+  // Filter active tasks assigned to this member
+  const myTasks = tasks.filter(t => t.assignedTo === currentMember.id && t.status !== 'Completed');
+
   // Set default TL
   const [selectedTLId, setSelectedTLId] = useState(() => {
     const reportLead = teamLeads.find(l => l.id === currentMember.tlId);
@@ -45,7 +51,8 @@ export default function WorkLogForm({
       category,
       description,
       hoursSpent: Number(hoursSpent),
-      githubLink: githubLink.trim() || undefined
+      githubLink: githubLink.trim() || undefined,
+      taskId: associatedTaskId || undefined
     };
 
     setItems([...items, newItem]);
@@ -53,6 +60,7 @@ export default function WorkLogForm({
     setDescription('');
     setHoursSpent(1);
     setGithubLink('');
+    setAssociatedTaskId('');
   };
 
   const handleRemoveItem = (index: number) => {
@@ -107,6 +115,11 @@ export default function WorkLogForm({
                         {it.category}
                       </span>
                       <span className="text-[10px] font-mono text-slate-400 font-semibold">{it.hoursSpent}h</span>
+                      {it.taskId && (
+                        <span className="text-[9px] bg-emerald-50 text-[#5a6e53] font-bold font-mono px-1.5 py-0.5 rounded border border-emerald-100 uppercase animate-pulse">
+                          🔗 Linked Deliverable
+                        </span>
+                      )}
                       {it.githubLink && (
                         <a 
                           href={it.githubLink} 
@@ -139,6 +152,36 @@ export default function WorkLogForm({
             <span className="text-xs font-semibold text-[#2d3a2a]">Add Task Entry</span>
             <span className="text-[10px] text-[#7a7d75] font-mono font-semibold">Fill all inputs</span>
           </div>
+
+          {myTasks.length > 0 && (
+            <div className="bg-[#5a6e53]/5 border border-[#5a6e53]/15 p-2 rounded-xl">
+              <label className="text-[10px] font-bold text-[#5a6e53] uppercase block mb-1">Associate with Assigned Task (Optional)</label>
+              <select
+                className="w-full text-xs bg-[#fdfcf8] border border-[#e2dfd2] focus:border-[#5a6e53] rounded-xl px-2 py-1 focus:outline-none font-sans text-[#3d403a]"
+                value={associatedTaskId}
+                onChange={e => {
+                  const val = e.target.value;
+                  setAssociatedTaskId(val);
+                  if (val) {
+                    const matched = myTasks.find(t => t.id === val);
+                    if (matched) {
+                      setProject(matched.projectName || "Monolith Core");
+                      if (!description) {
+                        setDescription(matched.title);
+                      }
+                    }
+                  }
+                }}
+              >
+                <option value="">-- No Direct Link (Standalone Entry) --</option>
+                {myTasks.map(t => (
+                  <option key={t.id} value={t.id}>
+                    [{t.projectName || "General"}] {t.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-2">
             <div>

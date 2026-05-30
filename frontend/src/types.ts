@@ -12,6 +12,7 @@ export interface TeamMember {
   tlId?: string; // Reports to
   agreementHours?: number; // e.g., 20 or 10
   breakDay?: string; // e.g., 'Monday' or 'Friday'
+  passwordHash?: string;
 }
 
 export interface PunchRecord {
@@ -31,6 +32,15 @@ export interface LogItem {
   description: string;
   hoursSpent: number;
   githubLink?: string; // optional github link
+  taskId?: string; // Links dynamic actual hour spend logs
+}
+
+export interface EnterpriseProject {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  createdBy: string;
 }
 
 export interface DirectMessage {
@@ -65,4 +75,9 @@ export interface TaskDistribution {
   priority: 'Low' | 'Medium' | 'High';
   dueDate: string;
   createdAt: string;
+  projectName?: string;
+  estimatedHours?: number;   // Original assigned duration
+  actualHours?: number;      // Total spent time accumulated from logs
+  startDate?: string;        // Assigned work start date
+  endDate?: string;          // Assigned work end date
 }

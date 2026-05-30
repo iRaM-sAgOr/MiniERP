@@ -25,7 +25,7 @@ import TeamDashboard from './components/TeamDashboard';
 import TaskAllocator from './components/TaskAllocator';
 // @ts-ignore
 import aiLogo from './assets/images/ai_solution_usa_logo_1780158886266.png';
-import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage } from './types';
+import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage, EnterpriseProject } from './types';
 
 export default function App() {
   const [members, setMembers] = useState<TeamMember[]>([]);
@@ -34,6 +34,7 @@ export default function App() {
   const [tasks, setTasks] = useState<TaskDistribution[]>([]);
   const [sentEmailsLog, setSentEmailsLog] = useState<any[]>([]);
   const [messages, setMessages] = useState<DirectMessage[]>([]);
+  const [projects, setProjects] = useState<EnterpriseProject[]>([]);
   
   const [currentMemberId, setCurrentMemberId] = useState<string>(() => localStorage.getItem('syncspace_current_member_id') || '');
   const [loading, setLoading] = useState(true);
@@ -43,6 +44,7 @@ export default function App() {
   // Auth & Landing layout states
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
 
   // Direct Message selected conversation & thread typing state
   const [selectedChatUserId, setSelectedChatUserId] = useState<string>('');
@@ -52,6 +54,7 @@ export default function App() {
   const [showRegForm, setShowRegForm] = useState(false);
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
   const [regRole, setRegRole] = useState('Remote System Engineer');
   const [regDept, setRegDept] = useState<'Engineering' | 'Product' | 'Design' | 'Marketing'>('Engineering');
   const [regHours, setRegHours] = useState(20);
@@ -70,6 +73,7 @@ export default function App() {
         setTasks(data.tasks || []);
         setSentEmailsLog(data.sentEmailsLog || []);
         setMessages(data.messages || []);
+        setProjects(data.projects || []);
       }
     } catch (err) {
       console.error('Failed to query standard state:', err);
@@ -186,6 +190,10 @@ export default function App() {
     assignedTo: string;
     priority: 'Low' | 'Medium' | 'High';
     dueDate: string;
+    projectName?: string;
+    estimatedHours?: number;
+    startDate?: string;
+    endDate?: string;
   }) => {
     try {
       setLoading(true);
@@ -200,12 +208,40 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         setTasks(data.state.tasks);
-        triggerAlert('success', `Published brand new work assignment to ${members.find(m => m.id === taskData.assignedTo)?.name}`);
+        triggerAlert('success', `Published brand new work assignment successfully.`);
       } else {
         triggerAlert('error', 'Task upload rejected by server ERP engine.');
       }
     } catch (err) {
       triggerAlert('error', 'Network error distributing task logs.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Create new project
+  const handleCreateProject = async (name: string, description: string) => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/erp/project', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          description,
+          createdBy: currentMemberId
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProjects(data.state.projects);
+        triggerAlert('success', `Enterprise Project "${name}" initialized successfully!`);
+      } else {
+        const err = await res.json();
+        triggerAlert('error', err.error || 'Failed to create active project.');
+      }
+    } catch (err) {
+      triggerAlert('error', 'Network failure connecting database gateway.');
     } finally {
       setLoading(false);
     }
@@ -242,6 +278,7 @@ export default function App() {
     agreementHours: number;
     breakDay: string;
     role: string;
+    password?: string;
   }) => {
     try {
       setLoading(true);
@@ -469,20 +506,36 @@ export default function App() {
                   <div className="space-y-6">
                     <div className="text-left space-y-1">
                       <h3 className="text-base font-bold font-serif text-[#2d3a2a]">Account Verification</h3>
-                      <p className="text-xs text-[#7a7d75]">Sign in with your enterprise email address profile or select a preconfigured credential card.</p>
+                      <p className="text-xs text-[#7a7d75]">Sign in with your enterprise email and secure password, or select a preconfigured credential card.</p>
                     </div>
 
                     <form
-                      onSubmit={(e) => {
+                      onSubmit={async (e) => {
                         e.preventDefault();
-                        if (!loginEmail.trim()) return;
-                        const match = members.find(m => m.email.toLowerCase() === loginEmail.trim().toLowerCase());
-                        if (match) {
-                          setCurrentMemberId(match.id);
-                          localStorage.setItem('syncspace_current_member_id', match.id);
-                          triggerAlert('success', `Welcome back, ${match.name}! Session initialized.`);
-                        } else {
-                          triggerAlert('error', 'No active profile found with this corporate email address. Click registry tab to join.');
+                        if (!loginEmail.trim() || !loginPassword) {
+                          triggerAlert('error', 'Please fill in both email and password.');
+                          return;
+                        }
+                        try {
+                          setLoading(true);
+                          const res = await fetch('/api/erp/login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: loginEmail, password: loginPassword })
+                          });
+                          if (res.ok) {
+                            const data = await res.json();
+                            setCurrentMemberId(data.member.id);
+                            localStorage.setItem('syncspace_current_member_id', data.member.id);
+                            triggerAlert('success', `Welcome back, ${data.member.name}! Hashed credential session starts.`);
+                          } else {
+                            const err = await res.json();
+                            triggerAlert('error', err.error || 'Invalid corporate credentials.');
+                          }
+                        } catch (err) {
+                          triggerAlert('error', 'Network failure connecting authentication gateway.');
+                        } finally {
+                          setLoading(false);
                         }
                       }}
                       className="space-y-3 text-left"
@@ -498,6 +551,22 @@ export default function App() {
                           className="w-full text-xs bg-[#fdfcf8] border border-[#e2dfd2] rounded-xl px-3 py-2 text-[#3d403a] placeholder-slate-400 focus:outline-[#5a6e53]"
                         />
                       </div>
+
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-xs font-bold text-[#3d403a] block">Secure Hashed Password</label>
+                          <span className="text-[10px] text-slate-400 font-mono">seeded as: password123</span>
+                        </div>
+                        <input
+                          type="password"
+                          required
+                          placeholder="••••••••"
+                          value={loginPassword}
+                          onChange={e => setLoginPassword(e.target.value)}
+                          className="w-full text-xs bg-[#fdfcf8] border border-[#e2dfd2] rounded-xl px-3 py-2 text-[#3d403a] placeholder-slate-400 focus:outline-[#5a6e53]"
+                        />
+                      </div>
+
                       <button
                         type="submit"
                         className="w-full py-2.5 bg-[#5a6e53] hover:opacity-90 text-white text-xs font-bold rounded-xl transition-all cursor-pointer font-serif uppercase tracking-wider"
@@ -519,11 +588,30 @@ export default function App() {
                           return (
                             <button
                               key={member.id}
-                              onClick={() => {
+                              onClick={async () => {
                                 setLoginEmail(member.email);
-                                setCurrentMemberId(member.id);
-                                localStorage.setItem('syncspace_current_member_id', member.id);
-                                triggerAlert('success', `Authorized acting as ${member.name} (${member.roleType}).`);
+                                setLoginPassword('password123');
+                                try {
+                                  setLoading(true);
+                                  const res = await fetch('/api/erp/login', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ email: member.email, password: 'password123' })
+                                  });
+                                  if (res.ok) {
+                                    const data = await res.json();
+                                    setCurrentMemberId(data.member.id);
+                                    localStorage.setItem('syncspace_current_member_id', data.member.id);
+                                    triggerAlert('success', `Authorized securely acting as ${data.member.name} (Verified hash).`);
+                                  } else {
+                                    const err = await res.json();
+                                    triggerAlert('error', err.error || 'Seeded authentication error.');
+                                  }
+                                } catch (err) {
+                                  triggerAlert('error', 'Authentication gateway error.');
+                                } finally {
+                                  setLoading(false);
+                                }
                               }}
                               className="p-3 border border-[#e2dfd2] rounded-2xl bg-[#fdfcf8] text-left hover:bg-[#f4f1e8]/30 transition-all cursor-pointer group flex items-start gap-3"
                             >
@@ -549,21 +637,25 @@ export default function App() {
                     </div>
                   </div>
                 ) : (
-                  /* Register layout */
-                  <form
+                                    <form
                     onSubmit={(e) => {
                       e.preventDefault();
-                      if (!regName || !regEmail) return;
+                      if (!regName || !regEmail || !regPassword) {
+                        triggerAlert('error', 'Please fill in name, email, and password.');
+                        return;
+                      }
                       handleRegisterUser({
                         name: regName,
                         email: regEmail,
                         department: regDept,
                         agreementHours: regHours,
                         breakDay: regBreak,
-                        role: regRole
+                        role: regRole,
+                        password: regPassword
                       });
                       setRegName('');
                       setRegEmail('');
+                      setRegPassword('');
                     }}
                     className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left"
                   >
@@ -592,6 +684,18 @@ export default function App() {
                         placeholder="e.g. ada@lovelace.io"
                         value={regEmail}
                         onChange={e => setRegEmail(e.target.value)}
+                        className="w-full text-xs bg-[#fdfcf8] border border-[#e2dfd2] rounded-xl px-3 py-2 text-[#3d403a] focus:outline-[#5a6e53] placeholder-slate-400"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-[#3d403a] block mb-1">Create Secure Password</label>
+                      <input
+                        type="password"
+                        required
+                        placeholder="••••••••"
+                        value={regPassword}
+                        onChange={e => setRegPassword(e.target.value)}
                         className="w-full text-xs bg-[#fdfcf8] border border-[#e2dfd2] rounded-xl px-3 py-2 text-[#3d403a] focus:outline-[#5a6e53] placeholder-slate-400"
                       />
                     </div>
@@ -1085,6 +1189,7 @@ export default function App() {
                       savedWorkLog={activeWorklog}
                       onSubmitLog={handleLogSubmit}
                       loading={loading}
+                      tasks={tasks}
                     />
                   )}
                 </div>
@@ -1117,14 +1222,14 @@ export default function App() {
                   >
                     Roster & Backlog
                   </button>
-                  {currentMember && currentMember.roleType === 'Manager' && (
+                  {currentMember && (
                     <button
                       onClick={() => setActiveTab('allocator')}
                       className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                         activeTab === 'allocator' ? 'bg-[#5a6e53] text-white shadow-xs' : 'hover:bg-[#f4f1e8] text-[#3d403a]'
                       }`}
                     >
-                      Distribute Task List (Manager Mode)
+                      {currentMember.roleType === 'Manager' ? 'Distribute Task List (Manager Mode)' : 'Self-Assign Tasks'}
                     </button>
                   )}
                   <button
@@ -1158,11 +1263,13 @@ export default function App() {
                 />
               )}
 
-              {activeTab === 'allocator' && currentMember && currentMember.roleType === 'Manager' && (
+              {activeTab === 'allocator' && currentMember && (
                 <TaskAllocator
                   currentMember={currentMember}
                   members={members}
+                  projects={projects}
                   onAssignTask={handleAssignTask}
+                  onCreateProject={handleCreateProject}
                   loading={loading}
                 />
               )}
