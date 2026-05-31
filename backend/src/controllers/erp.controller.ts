@@ -150,15 +150,6 @@ export const sendMessage = async (req: Request, res: Response) => {
   }
 };
 
-export const resetDatabase = async (req: Request, res: Response) => {
-  try {
-    const state = await ErpService.reset(getRequestUserId(req));
-    res.json({ state });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
 export const forgotPassword = async (req: Request, res: Response) => {
   try {
     const { email } = req.body;

@@ -24,7 +24,23 @@ export class WorkLogService {
     }
 
     const todayStr = new Date().toISOString().split("T")[0];
-    const tl = assignedTL || { name: "Sarah Connor", email: "sarah.connor@monolith.io" };
+    let tl = assignedTL;
+    if (!tl) {
+      const mappedLead = member.tlId ? await MemberRepository.findById(member.tlId) : null;
+      if (mappedLead) {
+        tl = { name: mappedLead.name, email: mappedLead.email };
+      }
+    }
+    if (!tl) {
+      const allMembers = await MemberRepository.findAll();
+      const firstManager = allMembers.find(m => (m.roleType || "").toLowerCase() === "manager");
+      if (firstManager) {
+        tl = { name: firstManager.name, email: firstManager.email };
+      }
+    }
+    if (!tl) {
+      tl = { name: "Team Lead", email: "unassigned@minierp.local" };
+    }
 
     const itemsText = items.map((it, idx) => {
       return `${idx + 1}. [Project: ${it.project}] (${it.category}) ${it.description} - spent ${it.hoursSpent} hours.`;

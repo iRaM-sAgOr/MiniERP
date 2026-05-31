@@ -111,11 +111,4 @@ export class ErpRepository {
     await prisma.member.deleteMany();
   }
 
-  static async createMembers(members: Array<Record<string, unknown>>) {
-    return prisma.member.createMany({ data: members });
-  }
-
-  static async createProjects(projects: Array<Record<string, unknown>>) {
-    return prisma.project.createMany({ data: projects });
-  }
 }

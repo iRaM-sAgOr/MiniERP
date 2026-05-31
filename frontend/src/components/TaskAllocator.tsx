@@ -42,12 +42,12 @@ export default function TaskAllocator({
   const [priority, setPriority] = useState<'Low' | 'Medium' | 'High'>('Medium');
   
   const [selectedProject, setSelectedProject] = useState(() => {
-    return projects[0]?.name || 'Monolith Core';
+    return projects[0]?.name || '';
   });
 
   useEffect(() => {
     if (projects.length === 0) {
-      setSelectedProject('Monolith Core');
+      setSelectedProject('');
       return;
     }
 
@@ -75,7 +75,7 @@ export default function TaskAllocator({
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title) return;
+    if (!title || !selectedProject) return;
 
     // Engineers must self-assign tasks
     const targetAssignee = isManager ? assignedTo : currentMember.id;
@@ -151,6 +151,9 @@ export default function TaskAllocator({
                 onChange={e => setSelectedProject(e.target.value)}
                 disabled={loading}
               >
+                {projects.length === 0 && (
+                  <option value="">No projects available</option>
+                )}
                 {projects.map(p => (
                   <option key={p.id} value={p.name}>
                     📂 {p.name}
@@ -281,7 +284,7 @@ export default function TaskAllocator({
 
           <button
             type="submit"
-            disabled={loading || !title}
+            disabled={loading || !title || !selectedProject}
             className="w-full flex items-center justify-center gap-1.5 bg-[#5a6e53] hover:opacity-90 text-white font-bold text-xs rounded-xl py-2.5 px-4 transition-all disabled:opacity-50 cursor-pointer shadow-sm"
           >
             <PlusCircle className="w-4 h-4 text-[#d4a373]" />
@@ -332,7 +335,7 @@ export default function TaskAllocator({
               </form>
             ) : (
               <p className="text-[10px] text-[#7a7d75] leading-normal font-sans">
-                Only managers and Team Leads hold authorization blocks to instantiate root project portfolios. Please request Maya or Sarah Connor to authorize new enterprise projects.
+                Only managers and team leads can create new project portfolios. Please request your assigned manager for project creation access.
               </p>
             )}
           </div>

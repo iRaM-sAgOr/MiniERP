@@ -235,7 +235,7 @@ export default function App() {
   // Submit daily logs
   const handleLogSubmit = async (items: LogItem[], tlId: string) => {
     const selectedTL = members.find(m => m.id === tlId);
-    const tlData = selectedTL ? { name: selectedTL.name, email: selectedTL.email } : { name: 'Sarah Connor', email: 'sarah.connor@monolith.io' };
+    const tlData = selectedTL ? { name: selectedTL.name, email: selectedTL.email } : undefined;
     
     try {
       setLoading(true);
@@ -641,35 +641,6 @@ export default function App() {
     }
   };
 
-  // Reset core database
-  const handleReset = async () => {
-    if (!window.confirm("Restore standard remote team databases back to baseline seed?")) return;
-    try {
-      setLoading(true);
-      const res = await apiFetch('/api/erp/reset', { method: 'POST' });
-      if (res.ok) {
-        const data = await res.json();
-        setMembers(data.state.members);
-        setPunches(data.state.punches);
-        setWorklogs(data.state.worklogs);
-        setTasks(data.state.tasks);
-        setSentEmailsLog(data.state.sentEmailsLog);
-        setMessages(data.state.messages || []);
-        setCurrentMemberId('');
-        setAuthToken('');
-        setAuthRoleType('');
-        localStorage.removeItem('syncspace_auth_token');
-        localStorage.removeItem('syncspace_auth_role_type');
-        localStorage.removeItem('syncspace_current_member_id');
-        triggerAlert('success', 'Relational database wiped & reseeded to raw default layout.');
-      }
-    } catch (err) {
-      triggerAlert('error', 'Failed to wipe server indexes.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const currentMember = members.find(m => m.id === currentMemberId);
   const teamLeads = members.filter(m => m.isTL);
   
@@ -843,7 +814,7 @@ export default function App() {
                         <input
                           type="email"
                           required
-                          placeholder="e.g. sarah.connor@monolith.io"
+                          placeholder="e.g. manager@company.com"
                           value={loginEmail}
                           onChange={e => setLoginEmail(e.target.value)}
                           className="w-full text-xs bg-[#fdfcf8] border border-[#e2dfd2] rounded-xl px-3 py-2 text-[#3d403a] placeholder-slate-400 focus:outline-[#5a6e53]"

@@ -10,7 +10,12 @@
   "scripts": {
     "dev": "npm run dev --workspace=minierp-frontend",
     "dev:backend": "npm run dev --workspace=minierp-backend",
-    "lint": "tsc -p backend/tsconfig.json --noEmit && tsc -p frontend/tsconfig.json --noEmit",
+    "typecheck": "tsc -p backend/tsconfig.json --noEmit && tsc -p frontend/tsconfig.json --noEmit",
+    "lint": "npm run typecheck",
+    "lint:eslint": "if [ -f eslint.config.js ] || [ -f eslint.config.mjs ] || [ -f eslint.config.cjs ] || [ -f .eslintrc ] || [ -f .eslintrc.js ] || [ -f .eslintrc.cjs ] || [ -f .eslintrc.json ]; then npx eslint . --ext .ts,.tsx; else echo 'ESLint config not found. Skipping eslint check.'; fi",
+    "build:frontend": "npm run build --workspace=minierp-frontend",
+    "build:check": "npm run typecheck && npm run build:frontend",
+    "check": "npm run typecheck && npm run lint:eslint && npm run build:check",
     "prisma:generate": "npm run prisma:generate --workspace=minierp-backend",
     "prisma:migrate": "npm run prisma:migrate --workspace=minierp-backend",
     "prisma:deploy": "npm run prisma:deploy --workspace=minierp-backend",

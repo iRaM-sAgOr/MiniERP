@@ -7,7 +7,6 @@ import {
   getManagerState,
   managerGeneratePasswordReset,
   punch,
-  resetDatabase,
   sendEmail,
   sendMessage,
   updateRole,
@@ -34,6 +33,5 @@ router.post("/project/delete", deleteProject);
 router.post("/update-role", updateRole);
 router.post("/password-reset/generate", managerGeneratePasswordReset);
 router.post("/message", sendMessage);
-router.post("/reset", resetDatabase);
 
 export default router;

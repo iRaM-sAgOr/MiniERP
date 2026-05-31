@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Trash2, Sparkles, FolderKanban, Check, ChevronRight } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Plus, Trash2, Sparkles, FolderKanban, Check } from 'lucide-react';
 import { TeamMember, LogItem, WorkLog, TaskDistribution } from '../types';
 
 interface WorkLogFormProps {
@@ -21,10 +21,7 @@ export default function WorkLogForm({
   loading,
   tasks = []
 }: WorkLogFormProps) {
-  const [items, setItems] = useState<LogItem[]>([
-    { project: 'Monolith Core', category: 'Feature', description: 'Implemented dynamic route bundle preloads with robust Vite hooks.', hoursSpent: 4 },
-    { project: 'Sync Dashboards', category: 'Meeting', description: 'Met with PM Maya to align on typographic hierarchy and widget margin grids.', hoursSpent: 1 }
-  ]);
+  const [items, setItems] = useState<LogItem[]>(() => savedWorkLog?.items || []);
 
   const [project, setProject] = useState('');
   const [category, setCategory] = useState<LogItem['category']>('Feature');
@@ -32,6 +29,10 @@ export default function WorkLogForm({
   const [hoursSpent, setHoursSpent] = useState<number>(1);
   const [githubLink, setGithubLink] = useState('');
   const [associatedTaskId, setAssociatedTaskId] = useState('');
+
+  useEffect(() => {
+    setItems(savedWorkLog?.items || []);
+  }, [savedWorkLog]);
   
   // Filter active tasks assigned to this member
   const myTasks = tasks.filter(t => t.assignedTo === currentMember.id && t.status !== 'Completed');
@@ -165,7 +166,9 @@ export default function WorkLogForm({
                   if (val) {
                     const matched = myTasks.find(t => t.id === val);
                     if (matched) {
-                      setProject(matched.projectName || "Monolith Core");
+                      if (matched.projectName) {
+                        setProject(matched.projectName);
+                      }
                       if (!description) {
                         setDescription(matched.title);
                       }

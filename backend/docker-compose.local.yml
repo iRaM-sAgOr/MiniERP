@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: minierp
-      POSTGRES_PASSWORD: minierp_password
+      POSTGRES_PASSWORD: minierp_password_2025_ai_solution_usa
       POSTGRES_DB: minierp
     ports:
       - "5432:5432"
@@ -29,7 +29,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://minierp:minierp_password@postgres:5432/minierp?schema=public
+      DATABASE_URL: postgresql://minierp:minierp_password_2025_ai_solution_usa@postgres:5432/minierp?schema=public
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       PORT: 8080
       NODE_ENV: production

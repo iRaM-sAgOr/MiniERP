@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Member {
+  id             String         @id
+  name           String
+  email          String         @unique
+  passwordHash   String
+  role           String
+  roleType       String         // "Engineer" | "Manager"
+  avatar         String
+  department     String
+  punchStatus    String         // "Offline" | "Active" | "Break" | "ClockedOut"
+  lastPunchTime  String?
+  isTL           Boolean
+  tlId           String?
+  agreementHours Int?
+  breakDay       String?
+  punches        Punch[]
+  workLogs       WorkLog[]
+  tasksAssigned  Task[]         @relation("AssignedTo")
+  tasksCreated   Task[]         @relation("AssignedBy")
+  resetTokens    PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id            String   @id
+  memberId      String
+  member        Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  tokenHash     String
+  expiresAt     String
+  usedAt        String?
+  createdAt     String
+  requestedById String?
+  mode          String   // "SELF" | "MANAGER"
+
+  @@index([memberId, tokenHash])
+}
+
+model Project {
+  id          String   @id
+  name        String
+  description String?
+  createdAt   String
+  createdBy   String
+}
+
+model Punch {
+  id           String   @id
+  userId       String
+  member       Member   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date         String   // YYYY-MM-DD
+  clockIn      String   // ISO string
+  clockOut     String?  // ISO string
+  type         String   // 'Punch' | 'BreakStart' | 'BreakEnd' | 'ClockOut'
+  totalMinutes Int?
+  note         String?
+}
+
+model WorkLog {
+  id           String        @id
+  userId       String
+  member       Member        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date         String        // YYYY-MM-DD
+  emailDraft   String?
+  emailSubject String?
+  aiSummarized String?
+  sentToTl     Boolean
+  tlName       String?
+  tlEmail      String?
+  submittedAt  String        // ISO string
+  logItems     WorkLogItem[]
+}
+
+model WorkLogItem {
+  id          String   @id
+  workLogId   String
+  workLog     WorkLog  @relation(fields: [workLogId], references: [id], onDelete: Cascade)
+  project     String
+  category    String   // 'Feature' | 'Bugfix' | 'Meeting' | 'Research' | 'Documentation' | 'Support'
+  description String
+  hoursSpent  Float
+  taskId      String?
+  task        Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+}
+
+model Task {
+  id             String         @id
+  title          String
+  description    String
+  assignedTo     String
+  assignedToUser Member         @relation("AssignedTo", fields: [assignedTo], references: [id], onDelete: Cascade)
+  assignedBy     String
+  assignedByUser Member         @relation("AssignedBy", fields: [assignedBy], references: [id], onDelete: Cascade)
+  status         String         // 'Pending' | 'In Progress' | 'Completed'
+  priority       String         // 'Low' | 'Medium' | 'High'
+  dueDate        String         // YYYY-MM-DD
+  createdAt      String         // ISO string
+  projectName    String
+  estimatedHours Float
+  actualHours    Float
+  startDate      String         // YYYY-MM-DD
+  endDate        String         // YYYY-MM-DD
+  comments       Comment[]
+  history        HistoryEvent[]
+  subtasks       Subtask[]
+  workLogItems   WorkLogItem[]
+}
+
+model Subtask {
+  id          String   @id
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  title       String
+  isCompleted Boolean
+}
+
+model Comment {
+  id           String   @id
+  taskId       String
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId     String
+  authorName   String
+  authorAvatar String
+  text         String
+  createdAt    String   // ISO string
+}
+
+model HistoryEvent {
+  id        String   @id
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actorId   String
+  actorName String
+  type      String   // e.g. 'status_change', 'comment', 'subtask_toggle', 'creation', 'edit'
+  detail    String
+  timestamp String   // ISO string
+}
+
+model Message {
+  id           String   @id
+  senderId     String
+  senderName   String
+  senderAvatar String
+  content      String?  // Saved backend general channel messages
+  text         String?  // Saved frontend direct messages
+  channel      String?  // "general" or other channels
+  receiverId   String?  // DM receiver user ID
+  timestamp    String   // ISO string
+}
+
+model SentEmailLog {
+  id            String   @id
+  senderId      String
+  subject       String
+  receiverName  String
+  receiverEmail String
+  body          String
+  timestamp     String   // ISO string
+}
