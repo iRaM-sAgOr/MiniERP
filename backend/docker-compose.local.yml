@@ -7,8 +7,9 @@ services:
       POSTGRES_USER: minierp
       POSTGRES_PASSWORD: minierp_password_2025_ai_solution_usa
       POSTGRES_DB: minierp
-    ports:
-      - "5432:5432"
+    # Do not publish DB port on VM/public hosts.
+    # Access from SSH session using:
+    # docker compose -f docker-compose.local.yml exec postgres psql -U minierp -d minierp
     volumes:
       - minierp_pg_data:/var/lib/postgresql/data
     healthcheck:

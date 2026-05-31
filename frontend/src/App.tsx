@@ -49,6 +49,7 @@ const upsertMessage = (current: DirectMessage[], incoming: any): DirectMessage[]
 };
 
 export default function App() {
+  const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') || '';
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [punches, setPunches] = useState<PunchRecord[]>([]);
   const [worklogs, setWorklogs] = useState<WorkLog[]>([]);
@@ -113,7 +114,12 @@ export default function App() {
       headers.set('Content-Type', 'application/json');
     }
 
-    return fetch(resolveApiPath(input), { ...init, headers });
+    const resolved = resolveApiPath(input);
+    const requestTarget = typeof resolved === 'string' && resolved.startsWith('/api/')
+      ? `${apiBaseUrl}${resolved}`
+      : resolved;
+
+    return fetch(requestTarget, { ...init, headers });
   };
 
   // Load state from fullstack database API
