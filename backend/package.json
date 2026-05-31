@@ -19,7 +19,8 @@
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.3",
     "socket.io": "^4.8.3",
-    "vite": "^6.2.3"
+    "vite": "^6.2.3",
+    "winston": "^3.19.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

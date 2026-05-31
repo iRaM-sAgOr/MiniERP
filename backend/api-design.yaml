@@ -1,0 +1,539 @@
+openapi: 3.0.3
+info:
+  title: MiniERP API Design
+  version: 1.0.0
+  description: >
+    Concise API design for MiniERP role-based backend.
+    Includes auth, manager, and engineer endpoints.
+servers:
+  - url: http://localhost:8080
+    description: Local backend
+
+tags:
+  - name: Auth
+  - name: Manager
+  - name: Engineer
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: manager@company.com
+        password:
+          type: string
+          example: secure-password
+
+    RegisterRequest:
+      type: object
+      required: [email, name, role, department, agreementHours, breakDay]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+        roleType:
+          type: string
+          enum: [Engineer, Manager]
+        department:
+          type: string
+        agreementHours:
+          type: number
+        breakDay:
+          type: string
+
+    LoginResponse:
+      type: object
+      properties:
+        member:
+          type: object
+          additionalProperties: true
+        token:
+          type: string
+        expiresIn:
+          type: string
+        state:
+          type: object
+          additionalProperties: true
+
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    ResetPasswordRequest:
+      type: object
+      required: [email, token, newPassword]
+      properties:
+        email:
+          type: string
+          format: email
+        token:
+          type: string
+          example: A1B2C3D4
+        newPassword:
+          type: string
+          minLength: 8
+
+    GenerateResetTokenRequest:
+      type: object
+      required: [memberId]
+      properties:
+        memberId:
+          type: string
+
+    PunchRequest:
+      type: object
+      required: [userId, type]
+      properties:
+        userId:
+          type: string
+        type:
+          type: string
+          enum: [Punch, BreakStart, BreakEnd, ClockOut]
+        note:
+          type: string
+
+    WorklogItem:
+      type: object
+      required: [project, category, description, hoursSpent]
+      properties:
+        project:
+          type: string
+        category:
+          type: string
+          enum: [Feature, Bugfix, Meeting, Research, Documentation, Support]
+        description:
+          type: string
+        hoursSpent:
+          type: number
+        taskId:
+          type: string
+
+    WorklogRequest:
+      type: object
+      required: [userId, items]
+      properties:
+        userId:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorklogItem'
+        assignedTL:
+          type: object
+          properties:
+            name:
+              type: string
+            email:
+              type: string
+              format: email
+
+    GenericStateResponse:
+      type: object
+      properties:
+        state:
+          type: object
+          additionalProperties: true
+
+paths:
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '200':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request password reset token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          description: Generic success
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset successful
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/manager/state:
+    get:
+      tags: [Manager]
+      summary: Get manager state
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Manager state payload
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+
+  /api/engineer/state:
+    get:
+      tags: [Engineer]
+      summary: Get engineer state
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Engineer state payload
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+
+  /api/manager/punch:
+    post:
+      tags: [Manager]
+      summary: Submit punch event
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PunchRequest'
+      responses:
+        '200':
+          description: Updated state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericStateResponse'
+
+  /api/engineer/punch:
+    post:
+      tags: [Engineer]
+      summary: Submit punch event
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PunchRequest'
+      responses:
+        '200':
+          description: Updated state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericStateResponse'
+
+  /api/manager/worklog:
+    post:
+      tags: [Manager]
+      summary: Submit or replace worklog
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorklogRequest'
+      responses:
+        '200':
+          description: Updated state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericStateResponse'
+
+  /api/engineer/worklog:
+    post:
+      tags: [Engineer]
+      summary: Submit or replace worklog
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorklogRequest'
+      responses:
+        '200':
+          description: Updated state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericStateResponse'
+
+  /api/manager/password-reset/generate:
+    post:
+      tags: [Manager]
+      summary: Generate password reset token for an engineer
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateResetTokenRequest'
+      responses:
+        '200':
+          description: Token generated
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+
+  /api/manager/task:
+    post:
+      tags: [Manager]
+      summary: Create task
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated state
+
+  /api/manager/task/update:
+    post:
+      tags: [Manager]
+      summary: Update task
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated state
+
+  /api/engineer/task/update:
+    post:
+      tags: [Engineer]
+      summary: Update task
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated state
+
+  /api/manager/task/comment:
+    post:
+      tags: [Manager]
+      summary: Add task comment
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated state
+
+  /api/engineer/task/comment:
+    post:
+      tags: [Engineer]
+      summary: Add task comment
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated state
+
+  /api/manager/task/subtasks:
+    post:
+      tags: [Manager]
+      summary: Update subtasks
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated state
+
+  /api/engineer/task/subtasks:
+    post:
+      tags: [Engineer]
+      summary: Update subtasks
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated state
+
+  /api/manager/project:
+    post:
+      tags: [Manager]
+      summary: Create project
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated state
+
+  /api/manager/project/delete:
+    post:
+      tags: [Manager]
+      summary: Delete project
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated state
+
+  /api/manager/update-role:
+    post:
+      tags: [Manager]
+      summary: Update user role type
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Role updated
+
+  /api/manager/send-email:
+    post:
+      tags: [Manager]
+      summary: Save email dispatch log
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated state
+
+  /api/engineer/send-email:
+    post:
+      tags: [Engineer]
+      summary: Save email dispatch log
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated state
+
+  /api/manager/message:
+    post:
+      tags: [Manager]
+      summary: Send direct message
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated state
+
+  /api/engineer/message:
+    post:
+      tags: [Engineer]
+      summary: Send direct message
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated state
