@@ -140,6 +140,17 @@ export const updateRole = async (req: Request, res: Response) => {
   }
 };
 
+export const updateProfile = async (req: Request, res: Response) => {
+  try {
+    const { userId, ...profileData } = req.body;
+    const result = await ErpService.updateProfile(userId, profileData, getRequestUserId(req));
+    res.json(result);
+  } catch (err: any) {
+    const status = err.message === "You can update only your own profile." ? 403 : 400;
+    res.status(status).json({ error: err.message });
+  }
+};
+
 export const sendMessage = async (req: Request, res: Response) => {
   try {
     const { senderId, receiverId, text } = req.body;

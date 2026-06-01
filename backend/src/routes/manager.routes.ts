@@ -9,6 +9,7 @@ import {
   punch,
   sendEmail,
   sendMessage,
+  updateProfile,
   updateRole,
   updateTask,
   updateTaskSubtasks,
@@ -31,6 +32,7 @@ router.post("/task/subtasks", updateTaskSubtasks);
 router.post("/project", createProject);
 router.post("/project/delete", deleteProject);
 router.post("/update-role", updateRole);
+router.post("/profile", updateProfile);
 router.post("/password-reset/generate", managerGeneratePasswordReset);
 router.post("/message", sendMessage);
 

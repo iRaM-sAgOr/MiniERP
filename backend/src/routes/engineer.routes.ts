@@ -5,6 +5,7 @@ import {
   punch,
   sendEmail,
   sendMessage,
+  updateProfile,
   updateTask,
   updateTaskSubtasks,
   worklog,
@@ -22,6 +23,7 @@ router.post("/send-email", sendEmail);
 router.post("/task/update", updateTask);
 router.post("/task/comment", addTaskComment);
 router.post("/task/subtasks", updateTaskSubtasks);
+router.post("/profile", updateProfile);
 router.post("/message", sendMessage);
 
 export default router;

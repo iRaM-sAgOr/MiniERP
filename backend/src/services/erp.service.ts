@@ -357,6 +357,30 @@ export class ErpService {
     return { member: sanitizeMember(member), state };
   }
 
+  static async updateProfile(
+    userId: string,
+    profileData: {
+      name?: string;
+      role?: string;
+      avatar?: string;
+      department?: "Engineering" | "Product" | "Design" | "Marketing";
+      agreementHours?: number;
+      breakDay?: string;
+    },
+    requesterId?: string | null
+  ) {
+    const actorId = requesterId || userId;
+    if (!actorId || actorId !== userId) {
+      throw new Error("You can update only your own profile.");
+    }
+
+    const member = await MemberService.updateProfile(actorId, profileData);
+    const roleType = (member.roleType || "").toLowerCase();
+    const state = roleType === "manager" ? await buildManagerState(actorId) : await buildEngineerState(actorId);
+
+    return { member: sanitizeMember(member), state };
+  }
+
   static async sendMessage(senderId: string, receiverId: string, text: string, requesterId?: string | null) {
     const message = await MessageService.createDirectMessage(requesterId || senderId, receiverId, text);
     emitDirectMessage(message);

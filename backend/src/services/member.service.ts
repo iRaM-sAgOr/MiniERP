@@ -82,6 +82,71 @@ export class MemberService {
     });
   }
 
+  static async updateProfile(
+    userId: string,
+    data: {
+      name?: string;
+      role?: string;
+      avatar?: string;
+      department?: "Engineering" | "Product" | "Design" | "Marketing";
+      agreementHours?: number;
+      breakDay?: string;
+    }
+  ) {
+    const member = await MemberRepository.findById(userId);
+    if (!member) {
+      throw new Error("Member profile not found.");
+    }
+
+    const updates: Record<string, any> = {};
+
+    if (typeof data.name === "string") {
+      const name = data.name.trim();
+      if (!name) throw new Error("Name is required.");
+      updates.name = name;
+    }
+
+    if (typeof data.role === "string") {
+      const role = data.role.trim();
+      if (!role) throw new Error("Designation is required.");
+      updates.role = role;
+    }
+
+    if (typeof data.avatar === "string") {
+      const avatar = data.avatar.trim();
+      if (!avatar) throw new Error("Avatar URL is required.");
+      updates.avatar = avatar;
+    }
+
+    if (typeof data.department === "string") {
+      const allowedDepartments = ["Engineering", "Product", "Design", "Marketing"];
+      if (!allowedDepartments.includes(data.department)) {
+        throw new Error("Invalid department.");
+      }
+      updates.department = data.department;
+    }
+
+    if (data.agreementHours !== undefined) {
+      const hours = Number(data.agreementHours);
+      if (!Number.isFinite(hours) || hours <= 0) {
+        throw new Error("Agreement hours must be greater than 0.");
+      }
+      updates.agreementHours = Math.round(hours);
+    }
+
+    if (typeof data.breakDay === "string") {
+      const breakDay = data.breakDay.trim();
+      if (!breakDay) throw new Error("Break day is required.");
+      updates.breakDay = breakDay;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      throw new Error("No profile fields provided to update.");
+    }
+
+    return MemberRepository.update(userId, updates);
+  }
+
   static async updatePunchStatus(userId: string, status: string, lastPunchTime: string | null) {
     return MemberRepository.update(userId, {
       punchStatus: status,

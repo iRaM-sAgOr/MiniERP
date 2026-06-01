@@ -23,6 +23,7 @@ import WorkLogForm from './components/WorkLogForm';
 import EmailDraftCard from './components/EmailDraftCard';
 import TeamDashboard from './components/TeamDashboard';
 import TaskAllocator from './components/TaskAllocator';
+import ProfileManagement from './components/ProfileManagement';
 import { getChatSocket, setChatSocketAuthToken } from './socket/chatSocket';
 // @ts-ignore
 import aiLogo from './assets/images/ai_solution_usa_logo_1780158886266.png';
@@ -62,7 +63,7 @@ export default function App() {
   
   const [currentMemberId, setCurrentMemberId] = useState<string>(() => localStorage.getItem('syncspace_auth_token') ? (localStorage.getItem('syncspace_current_member_id') || '') : '');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'roster' | 'allocator' | 'messages' | 'sentLogs'>('roster');
+  const [activeTab, setActiveTab] = useState<'roster' | 'allocator' | 'messages' | 'sentLogs' | 'profile'>('roster');
   const [systemAlert, setSystemAlert] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
   // Auth & Landing layout states
@@ -523,6 +524,51 @@ export default function App() {
       }
     } catch (err) {
       triggerAlert('error', 'Network error modifying database role keys.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateProfile = async (profileData: {
+    name: string;
+    role: string;
+    avatar: string;
+    department: 'Engineering' | 'Product' | 'Design' | 'Marketing';
+    agreementHours: number;
+    breakDay: string;
+  }) => {
+    try {
+      setLoading(true);
+      const res = await apiFetch('/api/erp/profile', {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: currentMemberId,
+          ...profileData,
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setMembers(data.state.members || []);
+        setPunches(data.state.punches || []);
+        setWorklogs(data.state.worklogs || []);
+        setTasks(data.state.tasks || []);
+        setSentEmailsLog(data.state.sentEmailsLog || []);
+        setMessages(data.state.messages || []);
+        setProjects(data.state.projects || []);
+        triggerAlert('success', 'Profile updated successfully.');
+      } else {
+        const err = await res.json();
+        const message = err.error || 'Failed to update profile.';
+        triggerAlert('error', message);
+        throw new Error(message);
+      }
+    } catch (error) {
+      const isNetworkFailure = error instanceof TypeError;
+      if (isNetworkFailure) {
+        triggerAlert('error', 'Network error while updating profile.');
+      }
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -1515,6 +1561,14 @@ export default function App() {
                   >
                     Email Receipts Log
                   </button>
+                  <button
+                    onClick={() => setActiveTab('profile')}
+                    className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      activeTab === 'profile' ? 'bg-[#5a6e53] text-white shadow-xs' : 'hover:bg-[#f4f1e8] text-[#3d403a]'
+                    }`}
+                  >
+                    My Profile
+                  </button>
                 </div>
               </div>
 
@@ -1674,6 +1728,14 @@ export default function App() {
                     </div>
                   </div>
                 </div>
+              )}
+
+              {activeTab === 'profile' && currentMember && (
+                <ProfileManagement
+                  currentMember={currentMember}
+                  loading={loading}
+                  onUpdateProfile={handleUpdateProfile}
+                />
               )}
 
               {activeTab === 'sentLogs' && (
