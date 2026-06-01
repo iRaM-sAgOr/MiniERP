@@ -21,15 +21,58 @@ dotenv.config({ path: path.resolve(__dirname, ".env") });
 const app = express();
 const PORT = Number(process.env.PORT ?? 8080);
 const useViteMiddleware = process.env.NODE_ENV !== "production" && process.env.VITE_MIDDLEWARE !== "false";
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || "http://localhost:3000,http://20.66.100.189:3000")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const isOriginAllowed = (origin?: string) => {
+  if (!origin) return true;
+  return allowedOrigins.includes(origin);
+};
+
 const httpServer = createServer(app);
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: true,
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("CORS origin not allowed"));
+    },
     credentials: true,
   },
 });
 
 initChatGateway(io);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const allowed = isOriginAllowed(origin);
+
+  if (origin && allowed) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Authorization,Content-Type");
+
+  if (req.method === "OPTIONS") {
+    if (!allowed) {
+      return res.status(403).json({ error: "CORS origin not allowed." });
+    }
+    return res.sendStatus(204);
+  }
+
+  if (origin && !allowed) {
+    return res.status(403).json({ error: "CORS origin not allowed." });
+  }
+
+  next();
+});
 
 app.use(express.json());
 app.use(requestLogger);
@@ -69,6 +112,7 @@ const startServer = async () => {
   }
 
   httpServer.listen(PORT, "0.0.0.0", () => {
+    logger.info("CORS allowlist configured.", { allowedOrigins });
     logger.info(`ERP Server booted successfully and running on port ${PORT}`);
   });
 };
