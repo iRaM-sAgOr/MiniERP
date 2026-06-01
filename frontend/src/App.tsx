@@ -330,7 +330,7 @@ export default function App() {
   const handleCreateProject = async (name: string, description: string) => {
     try {
       setLoading(true);
-      const res = await apiFetch('/api/erp/project', {
+      const res = await apiFetch('/api/manager/project', {
         method: 'POST',
         body: JSON.stringify({
           name,
@@ -356,7 +356,7 @@ export default function App() {
   const handleDeleteProject = async (projectId: string) => {
     try {
       setLoading(true);
-      const res = await apiFetch('/api/erp/project/delete', {
+      const res = await apiFetch('/api/manager/project/delete', {
         method: 'POST',
         body: JSON.stringify({ projectId, deletedBy: currentMemberId })
       });
