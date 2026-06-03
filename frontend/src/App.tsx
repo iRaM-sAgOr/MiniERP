@@ -124,31 +124,72 @@ export default function App() {
   };
 
   // Load state from fullstack database API
-  const fetchState = async (showSilently = false) => {
+  const fetchState = async () => {
     if (!authToken) {
-      if (!showSilently) {
-        setLoading(false);
-      }
+      setLoading(false);
       return;
     }
 
-    if (!showSilently) setLoading(true);
+    setLoading(true);
     try {
       const res = await apiFetch('/api/erp/state');
       if (res.ok) {
         const data = await res.json();
         setMembers(data.members || []);
         setPunches(data.punches || []);
-        setWorklogs(data.worklogs || []);
         setTasks(data.tasks || []);
         setSentEmailsLog(data.sentEmailsLog || []);
-        setMessages(data.messages || []);
-        setProjects(data.projects || []);
       }
     } catch (err) {
       console.error('Failed to query standard state:', err);
     } finally {
-      if (!showSilently) setLoading(false);
+      setLoading(false);
+    }
+  };
+
+  const fetchWorklogs = async () => {
+    if (!authToken) return;
+
+    try {
+      const res = await apiFetch('/api/erp/worklogs');
+      if (res.ok) {
+        const data = await res.json();
+        setWorklogs(data.worklogs || []);
+      }
+    } catch (err) {
+      console.error('Failed to query worklog list:', err);
+    }
+  };
+
+  const fetchMessages = async (showSilently = false) => {
+    if (!authToken) {
+      return;
+    }
+
+    try {
+      const res = await apiFetch('/api/erp/messages');
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(data.messages || []);
+      }
+    } catch (err) {
+      if (!showSilently) {
+        console.error('Failed to query message list:', err);
+      }
+    }
+  };
+
+  const fetchProjects = async () => {
+    if (!authToken) return;
+
+    try {
+      const res = await apiFetch('/api/erp/projects');
+      if (res.ok) {
+        const data = await res.json();
+        setProjects(data.projects || []);
+      }
+    } catch (err) {
+      console.error('Failed to query project list:', err);
     }
   };
 
@@ -188,21 +229,10 @@ export default function App() {
   }, [authToken]);
 
   useEffect(() => {
-    let syncTicker: ReturnType<typeof setInterval> | undefined;
-
     fetchState();
-
-    if (authToken) {
-      syncTicker = setInterval(() => {
-        fetchState(true);
-      }, 3000);
-    }
-
-    return () => {
-      if (syncTicker) {
-        clearInterval(syncTicker);
-      }
-    };
+    fetchWorklogs();
+    fetchMessages();
+    fetchProjects();
   }, [authToken]);
 
   const triggerAlert = (type: 'success' | 'error' | 'info', text: string) => {
@@ -257,7 +287,7 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         setMembers(data.state.members);
-        setWorklogs(data.state.worklogs);
+        await fetchWorklogs();
         triggerAlert('success', 'Daily logs submitted! Professional TL Email draft ready in portal.');
       } else {
         triggerAlert('error', 'Server error logging metrics.');
@@ -279,7 +309,7 @@ export default function App() {
       });
       if (res.ok) {
         const data = await res.json();
-        setWorklogs(data.state.worklogs);
+        await fetchWorklogs();
         setSentEmailsLog(data.state.sentEmailsLog);
         triggerAlert('success', 'Mail sent successfully. Logging dispatch item.');
       } else {
@@ -340,8 +370,7 @@ export default function App() {
         })
       });
       if (res.ok) {
-        const data = await res.json();
-        setProjects(data.state.projects);
+        await fetchProjects();
         triggerAlert('success', `Enterprise Project "${name}" initialized successfully!`);
       } else {
         const err = await res.json();
@@ -362,8 +391,7 @@ export default function App() {
         body: JSON.stringify({ projectId, deletedBy: currentMemberId })
       });
       if (res.ok) {
-        const data = await res.json();
-        setProjects(data.state.projects);
+        await fetchProjects();
         triggerAlert('success', 'Project deleted successfully.');
       } else {
         const err = await res.json();
@@ -551,11 +579,9 @@ export default function App() {
         const data = await res.json();
         setMembers(data.state.members || []);
         setPunches(data.state.punches || []);
-        setWorklogs(data.state.worklogs || []);
         setTasks(data.state.tasks || []);
         setSentEmailsLog(data.state.sentEmailsLog || []);
-        setMessages(data.state.messages || []);
-        setProjects(data.state.projects || []);
+        await Promise.all([fetchWorklogs(), fetchMessages(), fetchProjects()]);
         triggerAlert('success', 'Profile updated successfully.');
       } else {
         const err = await res.json();
@@ -682,8 +708,7 @@ export default function App() {
         })
       });
       if (res.ok) {
-        const data = await res.json();
-        setMessages((data.state.messages || []) as DirectMessage[]);
+        await fetchMessages();
         triggerAlert('success', 'Message dispatched successfully!');
       } else {
         triggerAlert('error', 'Server failed to save direct message.');
@@ -1190,7 +1215,7 @@ export default function App() {
                 </button>
               )}
               <button
-                onClick={() => fetchState(false)}
+                onClick={() => { fetchState(); fetchWorklogs(); fetchMessages(); fetchProjects(); }}
                 disabled={loading}
                 className="p-2 border border-[#e2dfd2] bg-white hover:bg-[#f4f1e8] text-[#5a6e53] rounded-xl transition-colors cursor-pointer"
                 title="Synchronize data layers with database"
@@ -1501,6 +1526,7 @@ export default function App() {
                       onSubmitLog={handleLogSubmit}
                       loading={loading}
                       tasks={tasks}
+                      projects={projects}
                     />
                   )}
                 </div>

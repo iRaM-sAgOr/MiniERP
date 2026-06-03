@@ -93,7 +93,7 @@ export default function EmailDraftCard({ worklog, currentMember, members, onSend
           className="w-full text-xs font-bold px-3.5 py-2.5 bg-[#fdfcf8] border border-[#e2dfd2] rounded-xl text-[#3d403a] focus:outline-none focus:border-[#5a6e53]/70 focus:ring-1 focus:ring-[#5a6e53]/70 transition-all duration-200 disabled:bg-[#f4f1e8]/30 disabled:text-[#7a7d75]"
         >
           <option value="ALL">ALL members of this organization</option>
-          {members.map(member => (
+          {members.filter(member => member.id !== currentMember.id).map(member => (
             <option key={member.id} value={member.id}>
               {member.name} ({member.roleType})
             </option>

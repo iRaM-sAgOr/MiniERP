@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, Trash2, Sparkles, FolderKanban, Check } from 'lucide-react';
-import { TeamMember, LogItem, WorkLog, TaskDistribution } from '../types';
+import { TeamMember, LogItem, WorkLog, TaskDistribution, EnterpriseProject } from '../types';
 
 interface WorkLogFormProps {
   currentMember: TeamMember;
@@ -9,6 +9,7 @@ interface WorkLogFormProps {
   onSubmitLog: (items: LogItem[], tlId: string) => Promise<void>;
   loading: boolean;
   tasks?: TaskDistribution[];
+  projects?: EnterpriseProject[];
 }
 
 const CATEGORIES: LogItem['category'][] = ['Feature', 'Bugfix', 'Meeting', 'Research', 'Documentation', 'Support'];
@@ -19,7 +20,8 @@ export default function WorkLogForm({
   savedWorkLog,
   onSubmitLog,
   loading,
-  tasks = []
+  tasks = [],
+  projects = []
 }: WorkLogFormProps) {
   const [items, setItems] = useState<LogItem[]>(() => savedWorkLog?.items || []);
 
@@ -78,6 +80,7 @@ export default function WorkLogForm({
   };
 
   const isCompleteSubmit = savedWorkLog && savedWorkLog.items.length === items.length;
+  const projectOptions = projects;
 
   return (
     <div className="bg-white border border-[#e2dfd2] rounded-3xl p-6 shadow-sm flex flex-col justify-between" id="erp-work-log-entry-panel">
@@ -189,14 +192,19 @@ export default function WorkLogForm({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-[10px] font-bold text-[#5a6e53] uppercase block mb-1">Project Name</label>
-              <input
-                type="text"
-                placeholder="e.g., Core ERP"
+              <select
                 required
-                className="w-full text-xs bg-[#fdfcf8] border border-[#e2dfd2] focus:border-[#5a6e53] rounded-xl px-2.5 py-1.5 focus:outline-none placeholder-slate-300 font-sans text-[#3d403a]"
+                className="w-full text-xs bg-[#fdfcf8] border border-[#e2dfd2] focus:border-[#5a6e53] rounded-xl px-2.5 py-1.5 focus:outline-none font-sans text-[#3d403a]"
                 value={project}
                 onChange={e => setProject(e.target.value)}
-              />
+              >
+                <option value="">Select a project</option>
+                {projectOptions.map(projectOption => (
+                  <option key={projectOption.id} value={projectOption.name}>
+                    {projectOption.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="text-[10px] font-bold text-[#5a6e53] uppercase block mb-1">Category</label>

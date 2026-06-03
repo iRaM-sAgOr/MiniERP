@@ -13,6 +13,22 @@ export class WorkLogService {
     return WorkLogRepository.findByUserId(userId);
   }
 
+  static async getVisibleWorkLogs(requesterId?: string | null) {
+    if (!requesterId) {
+      return [];
+    }
+
+    const requester = await MemberRepository.findById(requesterId);
+    const isManager = (requester?.roleType || "").toLowerCase() === "manager";
+    const worklogs = isManager ? await WorkLogRepository.findAll() : await WorkLogRepository.findByUserId(requesterId);
+
+    return worklogs.map(worklog => ({
+      ...worklog,
+      items: worklog.logItems,
+      assignedTL: { name: worklog.tlName || "", email: worklog.tlEmail || "" },
+    }));
+  }
+
   static async createOrReplaceWorkLog(
     userId: string,
     items: Array<{ project: string; category: string; description: string; hoursSpent: number; taskId?: string }>,

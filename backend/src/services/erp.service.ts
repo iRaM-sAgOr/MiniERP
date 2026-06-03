@@ -55,13 +55,11 @@ const buildCommonState = async (requesterId?: string | null): Promise<CommonStat
   const scopedWorklogs = requesterExists ? (isManager ? worklogs : worklogs.filter(worklog => worklog.userId === requesterId)) : [];
   const scopedTasks = requesterExists ? (isManager ? tasks : tasks.filter(task => task.assignedTo === requesterId)) : [];
   const scopedMessages = requesterExists
-    ? (isManager ? messages : messages.filter(message => message.channel === "general" || message.senderId === requesterId || message.receiverId === requesterId))
+    ? messages.filter(message => message.channel === "general" || message.senderId === requesterId || message.receiverId === requesterId)
     : [];
   const scopedProjects = requesterExists ? projects : [];
   const scopedSentEmailsLog = requesterExists
-    ? (isManager
-      ? sentEmailsLog
-      : sentEmailsLog.filter(log => log.senderId === requesterId || log.receiverEmail === requester?.email || log.receiverEmail === "all@minierp.local"))
+    ? sentEmailsLog.filter(log => log.senderId === requesterId || log.receiverEmail === requester?.email || log.receiverEmail === "all@minierp.local")
     : [];
 
   const mappedWorklogs = scopedWorklogs.map(wl => ({
@@ -192,7 +190,7 @@ const buildEngineerState = async (requesterId?: string | null) => {
     member: myMember,
     members: relatedMembers,
     messages: myMessages,
-    projects: relatedProjects,
+    projects: commonState.projects,
     sentEmailsLog: myEmailLogs,
     dashboard: {
       myTasks: myTasks.length,
