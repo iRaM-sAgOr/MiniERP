@@ -79,6 +79,28 @@ export default function App() {
   const [selectedChatUserId, setSelectedChatUserId] = useState<string>('');
   const [typedMessage, setTypedMessage] = useState<string>('');
   const chatSocketRef = useRef<ReturnType<typeof getChatSocket> | null>(null);
+  // Unseen message counts per sender: Map<senderId, count>
+  const [unseenSenders, setUnseenSenders] = useState<Map<string, number>>(new Map());
+  const activeTabRef = useRef(activeTab);
+  const selectedChatUserIdRef = useRef(selectedChatUserId);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
+  useEffect(() => { selectedChatUserIdRef.current = selectedChatUserId; }, [selectedChatUserId]);
+  // Auto-clear unseen count whenever the user is viewing that conversation
+  useEffect(() => {
+    if (activeTab === 'messages' && selectedChatUserId) {
+      setUnseenSenders(prev => {
+        if (!prev.has(selectedChatUserId)) return prev;
+        const next = new Map(prev);
+        next.delete(selectedChatUserId);
+        return next;
+      });
+    }
+  }, [activeTab, selectedChatUserId, messages]);
+  // Auto-scroll to bottom when messages update or conversation changes
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, selectedChatUserId]);
 
   // Registration overlay settings state
   const [showRegForm, setShowRegForm] = useState(false);
@@ -200,6 +222,17 @@ export default function App() {
 
     const handleIncomingMessage = (message: DirectMessage) => {
       setMessages(prev => upsertMessage(prev, message));
+      // Track unseen: only count messages sent by someone else
+      if (message.senderId && message.senderId !== currentMemberId) {
+        const chatOpen = activeTabRef.current === 'messages' && selectedChatUserIdRef.current === message.senderId;
+        if (!chatOpen) {
+          setUnseenSenders(prev => {
+            const next = new Map(prev);
+            next.set(message.senderId, (next.get(message.senderId) || 0) + 1);
+            return next;
+          });
+        }
+      }
     };
 
     socket.on('chat:direct:new', handleIncomingMessage);
@@ -1573,11 +1606,19 @@ export default function App() {
                   )}
                   <button
                     onClick={() => setActiveTab('messages')}
-                    className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    className={`relative py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       activeTab === 'messages' ? 'bg-[#5a6e53] text-white shadow-xs' : 'hover:bg-[#f4f1e8] text-[#3d403a]'
                     }`}
                   >
                     Direct Messages (Chat)
+                    {(() => {
+                      const total = Array.from(unseenSenders.values()).reduce((s, n) => s + n, 0);
+                      return total > 0 ? (
+                        <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center px-1 leading-none">
+                          {total > 99 ? '99+' : total}
+                        </span>
+                      ) : null;
+                    })()}
                   </button>
                   <button
                     onClick={() => setActiveTab('sentLogs')}
@@ -1644,21 +1685,38 @@ export default function App() {
                     <div className="md:col-span-1 border-r border-[#e2dfd2]/60 pr-4 space-y-2">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono text-left">Active Remote Members</span>
                       <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
-                        {members
+                      {members
                           .filter(m => m.id !== currentMember.id)
                           .map(m => {
+                            const unseenCount = unseenSenders.get(m.id) || 0;
                             return (
                               <button
                                 key={m.id}
-                                onClick={() => setSelectedChatUserId(m.id)}
+                                onClick={() => {
+                                  setSelectedChatUserId(m.id);
+                                  setUnseenSenders(prev => {
+                                    const next = new Map(prev);
+                                    next.delete(m.id);
+                                    return next;
+                                  });
+                                }}
                                 className={`w-full flex items-center justify-between p-2 rounded-xl text-left text-xs transition-all cursor-pointer ${
                                   selectedChatUserId === m.id
                                     ? 'bg-[#5a6e53]/10 text-[#2d3a2a] border border-[#5a6e53]/35 font-bold'
-                                    : 'hover:bg-[#f4f1e8]/30 text-[#3d403a]'
+                                    : unseenCount > 0
+                                      ? 'bg-red-50 border border-red-200 text-[#3d403a]'
+                                      : 'hover:bg-[#f4f1e8]/30 text-[#3d403a]'
                                 }`}
                               >
                                 <div className="flex items-center gap-2">
-                                  <img src={m.avatar} alt={m.name} className="w-6 h-6 rounded-full object-cover border" referrerPolicy="no-referrer" />
+                                  <div className="relative">
+                                    <img src={m.avatar} alt={m.name} className="w-6 h-6 rounded-full object-cover border" referrerPolicy="no-referrer" />
+                                    {unseenCount > 0 && (
+                                      <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 bg-red-500 text-white text-[8px] font-extrabold rounded-full flex items-center justify-center px-0.5 leading-none">
+                                        {unseenCount > 9 ? '9+' : unseenCount}
+                                      </span>
+                                    )}
+                                  </div>
                                   <div>
                                     <p className="font-bold leading-tight">{m.name}</p>
                                     <p className="text-[10px] text-slate-400 font-mono italic leading-none">{m.roleType}</p>
@@ -1710,7 +1768,7 @@ export default function App() {
                                     <p>{msg.text}</p>
                                   </div>
                                 );
-                              });
+                              }).concat([<div key="__end" ref={messagesEndRef} />]);
                             })()}
                           </div>
                           
