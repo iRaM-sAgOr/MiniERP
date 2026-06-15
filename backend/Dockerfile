@@ -20,5 +20,5 @@ ENV VITE_MIDDLEWARE=false
 
 EXPOSE 8080
 
-# Auto-apply migrations at container startup, then run backend API server
-CMD ["sh", "-c", "npx prisma generate --schema prisma/schema.postgres.prisma && npx prisma db push --schema prisma/schema.postgres.prisma && npm run dev"]
+# Generate Prisma client and apply committed migrations at startup, then run backend API server
+CMD ["sh", "-c", "npx prisma generate --schema prisma/schema.postgres.prisma && npx prisma migrate deploy --schema prisma/schema.postgres.prisma && npm run start"]

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "VITE_MIDDLEWARE=false tsx server.ts",
     "dev:fullstack": "tsx server.ts",
+    "start": "VITE_MIDDLEWARE=false tsx server.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:deploy": "prisma migrate deploy",
