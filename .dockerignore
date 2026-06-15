@@ -1,0 +1,8 @@
+# Exclude all env files so secrets are never baked into the image.
+# Environment variables are injected at runtime via docker-compose env_file.
+**/.env
+**/.env.*
+**/node_modules
+**/dist
+**/build
+**/*.log
