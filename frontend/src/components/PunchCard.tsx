@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { TeamMember, PunchRecord } from '../types';
-import { Clock, Play, Coffee, LogOut, FileText } from 'lucide-react';
+import { Clock, Play, Coffee, LogOut, FileText, Timer } from 'lucide-react';
+import { computeWorkedMinutes, formatDuration, hasClockedOut } from '../utils/punchDuration';
 
 interface PunchCardProps {
   currentMember: TeamMember;
@@ -12,6 +13,8 @@ interface PunchCardProps {
 export default function PunchCard({ currentMember, punchesForToday, onPunch, loading }: PunchCardProps) {
   const [note, setNote] = useState('');
   const status = currentMember.punchStatus || 'Offline';
+  const workedMinutes = computeWorkedMinutes(punchesForToday);
+  const didClockOut = hasClockedOut(punchesForToday);
 
   const handlePunchAction = async (type: 'Punch' | 'BreakStart' | 'BreakEnd' | 'ClockOut') => {
     await onPunch(type, note);
@@ -108,6 +111,32 @@ export default function PunchCard({ currentMember, punchesForToday, onPunch, loa
           </>
         )}
       </div>
+
+      {/* Worked time summary */}
+      {punchesForToday.length > 0 && (
+        <div className={`mb-4 flex items-center justify-between px-3 py-2 rounded-xl border ${
+          didClockOut
+            ? 'bg-emerald-50 border-emerald-200'
+            : status === 'Break'
+            ? 'bg-amber-50 border-amber-200'
+            : 'bg-[#f4f1e8] border-[#e2dfd2]'
+        }`}>
+          <span className="flex items-center gap-1.5 text-[11px] font-bold text-[#3d403a] uppercase tracking-wider">
+            <Timer className="w-3.5 h-3.5 text-[#5a6e53]" />
+            Today&apos;s Worked Time
+          </span>
+          <div className="text-right">
+            <span className={`text-base font-bold font-mono ${
+              didClockOut ? 'text-emerald-700' : 'text-[#5a6e53]'
+            }`}>
+              {formatDuration(workedMinutes)}
+            </span>
+            {!didClockOut && punchesForToday.some(p => p.type === 'Punch') && (
+              <span className="block text-[9px] text-amber-600 font-mono font-bold">still running</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Today's Punch History Timeline */}
       <div className="border-t border-[#e2dfd2]/60 pt-4">

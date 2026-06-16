@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { TeamMember, TaskDistribution, WorkLog } from '../types';
 import TaskDetailsDialog from './TaskDetailsDialog';
+import { computeWorkedMinutes, formatDuration, getDailyWorked, hasClockedOut } from '../utils/punchDuration';
 
 interface TeamDashboardProps {
   currentMember: TeamMember;
@@ -119,27 +120,27 @@ export default function TeamDashboard({
 
   const engineerMembers = members.filter(member => member.roleType === 'Engineer');
   const managerAnalyticsRows = engineerMembers.map(engineer => {
-    const engineerWorklogs = worklogs.filter(worklog => worklog.userId === engineer.id);
-    const dailyHoursMap = new Map<string, number>();
-    for (const worklog of engineerWorklogs) {
-      const dayHours = worklog.items.reduce((sum, item) => sum + item.hoursSpent, 0);
-      dailyHoursMap.set(worklog.date, (dailyHoursMap.get(worklog.date) || 0) + dayHours);
-    }
-    const dailyHours = Array.from(dailyHoursMap.entries())
+    // Punch-based per-day durations (source of truth for worked hours)
+    const dailyWorked = getDailyWorked(punches, engineer.id);
+    const punchDailyItems = Array.from(dailyWorked.entries())
       .sort((a, b) => b[0].localeCompare(a[0]))
       .slice(0, 7)
-      .map(([date, hours]) => ({ date, hours: Number(hours.toFixed(2)) }));
+      .map(([date, minutes]) => ({ date, minutes }));
 
-    const todayPunchMinutes = punches
-      .filter((p: any) => p.userId === engineer.id && p.date === todayDateKey)
-      .reduce((sum: number, p: any) => sum + (p.totalMinutes || 0), 0);
+    const todayWorkedMinutes = computeWorkedMinutes(
+      punches.filter((p: any) => p.userId === engineer.id && p.date === todayDateKey)
+    );
+    const todayClockedOut = hasClockedOut(
+      punches.filter((p: any) => p.userId === engineer.id && p.date === todayDateKey)
+    );
 
-    const completedTasks = tasks.filter(task => task.assignedTo === engineer.id && task.status === 'Completed').length;
+    const completedTasks = tasks.filter(t => t.assignedTo === engineer.id && t.status === 'Completed').length;
 
     return {
       engineer,
-      dailyHours,
-      todayPunchMinutes,
+      punchDailyItems,
+      todayWorkedMinutes,
+      todayClockedOut,
       completedTasks,
     };
   });
@@ -214,19 +215,54 @@ export default function TeamDashboard({
               </div>
 
               {/* Personal hours tracked */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-[#f4f1e8]/30 border border-[#e2dfd2] p-4 rounded-xl text-center">
-                  <span className="text-[10px] text-[#7a7d75] font-bold uppercase tracking-wider block font-mono">My Previous Working Hours</span>
-                  <span className="text-2xl font-bold text-[#5a6e53] block mt-1 font-mono">{totalMyHours} Hours</span>
-                  <span className="text-[10px] text-slate-500 block mt-0.5">Summed across all logged tasks</span>
-                </div>
+              {(() => {
+                const myTodayWorked = computeWorkedMinutes(
+                  punches.filter((p: any) => p.userId === currentMember.id && p.date === todayDateKey)
+                );
+                const myTodayClockedOut = hasClockedOut(
+                  punches.filter((p: any) => p.userId === currentMember.id && p.date === todayDateKey)
+                );
+                const myDailyWorked = getDailyWorked(punches, currentMember.id);
+                const myPunchHistory = Array.from(myDailyWorked.entries())
+                  .sort((a, b) => b[0].localeCompare(a[0]))
+                  .slice(0, 7);
 
-                <div className="bg-[#f4f1e8]/30 border border-[#e2dfd2] p-4 rounded-xl text-center">
-                  <span className="text-[10px] text-[#7a7d75] font-bold uppercase tracking-wider block font-mono">Weekly Agreement</span>
-                  <span className="text-2xl font-bold text-[#5a6e53] block mt-1 font-mono">{currentMember.agreementHours || 20} hrs/week</span>
-                  <span className="text-[10px] text-slate-500 block mt-0.5">Approved in system setting</span>
-                </div>
-              </div>
+                return (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-[#f4f1e8]/30 border border-[#e2dfd2] p-4 rounded-xl text-center">
+                        <span className="text-[10px] text-[#7a7d75] font-bold uppercase tracking-wider block font-mono">Today&apos;s Clock Time</span>
+                        <span className={`text-2xl font-bold block mt-1 font-mono ${myTodayClockedOut ? 'text-emerald-700' : myTodayWorked > 0 ? 'text-amber-700' : 'text-slate-400'}`}>
+                          {myTodayWorked > 0 ? formatDuration(myTodayWorked) : '—'}
+                        </span>
+                        <span className="text-[10px] text-slate-500 block mt-0.5">
+                          {myTodayClockedOut ? 'Final (clocked out)' : myTodayWorked > 0 ? 'Still running' : 'Not clocked in today'}
+                        </span>
+                      </div>
+
+                      <div className="bg-[#f4f1e8]/30 border border-[#e2dfd2] p-4 rounded-xl text-center">
+                        <span className="text-[10px] text-[#7a7d75] font-bold uppercase tracking-wider block font-mono">Weekly Agreement</span>
+                        <span className="text-2xl font-bold text-[#5a6e53] block mt-1 font-mono">{currentMember.agreementHours || 20} hrs/week</span>
+                        <span className="text-[10px] text-slate-500 block mt-0.5">Approved in system setting</span>
+                      </div>
+                    </div>
+
+                    {myPunchHistory.length > 0 && (
+                      <div className="bg-[#f4f1e8]/20 border border-[#e2dfd2]/80 p-3 rounded-2xl">
+                        <span className="text-[10px] font-bold text-[#3d403a] uppercase tracking-wider font-mono block mb-2">My Punch-Based Duration (last 7 days)</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {myPunchHistory.map(([date, minutes]) => (
+                            <div key={date} className="text-center bg-white border border-[#e2dfd2] rounded-lg px-2 py-1">
+                              <span className="text-[9px] text-[#7a7d75] font-mono block">{date.slice(5)}</span>
+                              <span className="text-xs font-bold font-mono text-[#5a6e53]">{formatDuration(minutes)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               {/* Personal break day info */}
               <div className="bg-[#f4f1e8]/20 border border-[#e2dfd2]/80 p-4 rounded-2xl">
@@ -291,19 +327,39 @@ export default function TeamDashboard({
                   {managerAnalyticsRows.map(row => (
                     <div key={row.engineer.id} className="border border-[#e2dfd2] rounded-xl p-2 bg-[#fdfcf8]">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-[#3d403a]">{row.engineer.name}</span>
-                        <span className="text-[10px] font-mono text-[#5a6e53]">Completed Tasks: {row.completedTasks}</span>
+                        <div className="flex items-center gap-1.5">
+                          <img src={row.engineer.avatar} alt={row.engineer.name} className="w-5 h-5 rounded-full object-cover border border-[#e2dfd2]" referrerPolicy="no-referrer" />
+                          <span className="font-bold text-[#3d403a]">{row.engineer.name}</span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${
+                            row.engineer.punchStatus === 'Active' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
+                            row.engineer.punchStatus === 'Break' ? 'bg-amber-50 border-amber-200 text-amber-700' :
+                            'bg-slate-50 border-slate-200 text-slate-500'
+                          }`}>{row.engineer.punchStatus}</span>
+                        </div>
+                        <span className="text-[10px] font-mono text-[#5a6e53]">✓ {row.completedTasks} tasks</span>
                       </div>
-                      <div className="mt-1 text-[11px] text-[#7a7d75] font-mono">Today's punch-based minutes: <strong className="text-[#3d403a]">{row.todayPunchMinutes}</strong></div>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {row.dailyHours.length > 0 ? row.dailyHours.map(item => (
-                          <span key={`${row.engineer.id}-${item.date}`} className="text-[10px] px-1.5 py-0.5 rounded border border-[#e2dfd2] bg-[#f4f1e8] text-[#3d403a] font-mono">
-                            {item.date}: {item.hours}h
-                          </span>
-                        )) : (
-                          <span className="text-[10px] text-[#7a7d75] italic">No recent worklogs.</span>
-                        )}
+                      <div className="mt-1.5 flex items-center justify-between">
+                        <span className="text-[10px] text-[#7a7d75] font-mono">Today worked:</span>
+                        <span className={`text-xs font-bold font-mono ${
+                          row.todayClockedOut ? 'text-emerald-700' :
+                          row.todayWorkedMinutes > 0 ? 'text-amber-700' : 'text-slate-400'
+                        }`}>
+                          {row.todayWorkedMinutes > 0 ? formatDuration(row.todayWorkedMinutes) : 'Not clocked in'}
+                          {!row.todayClockedOut && row.todayWorkedMinutes > 0 && <span className="text-[9px] ml-1">(ongoing)</span>}
+                        </span>
                       </div>
+                      {row.punchDailyItems.length > 0 && (
+                        <div className="mt-1.5">
+                          <span className="text-[9px] text-[#7a7d75] font-mono block mb-1">Punch-based history (last 7 days):</span>
+                          <div className="flex flex-wrap gap-1">
+                            {row.punchDailyItems.map(item => (
+                              <span key={item.date} className="text-[10px] px-1.5 py-0.5 rounded border border-[#e2dfd2] bg-[#f4f1e8] text-[#3d403a] font-mono">
+                                {item.date.slice(5)}: {formatDuration(item.minutes)}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -491,6 +547,12 @@ export default function TeamDashboard({
             <div className="space-y-2">
               {historyPageItems.map(log => {
                 const dailyHours = log.items.reduce((sum, item) => sum + item.hoursSpent, 0);
+                const punchMinutes = computeWorkedMinutes(
+                  punches.filter((p: any) => p.userId === selectedHistoryMember.id && p.date === log.date)
+                );
+                const didPunchOut = hasClockedOut(
+                  punches.filter((p: any) => p.userId === selectedHistoryMember.id && p.date === log.date)
+                );
                 return (
                   <div key={log.id} className="bg-white border border-[#e2dfd2] rounded-2xl p-3 text-left">
                     <div className="flex items-start justify-between gap-2 flex-wrap">
@@ -498,7 +560,18 @@ export default function TeamDashboard({
                         <h5 className="text-xs font-bold text-[#3d403a]">{log.date}</h5>
                         <p className="text-[10px] text-[#7a7d75] font-mono">Submitted {new Date(log.submittedAt).toLocaleString()}</p>
                       </div>
-                      <span className="text-[10px] font-bold text-[#5a6e53] bg-[#f4f1e8] border border-[#e2dfd2] px-2 py-0.5 rounded-full font-mono">{dailyHours}h</span>
+                      <div className="flex flex-col items-end gap-0.5">
+                        {punchMinutes > 0 ? (
+                          <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-full border ${
+                            didPunchOut ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700'
+                          }`}>
+                            ⏱ {formatDuration(punchMinutes)}{!didPunchOut ? ' (no clock-out)' : ''}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-mono text-slate-400 px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50">no punch data</span>
+                        )}
+                        <span className="text-[10px] font-bold text-[#5a6e53] bg-[#f4f1e8] border border-[#e2dfd2] px-2 py-0.5 rounded-full font-mono">{dailyHours}h logged</span>
+                      </div>
                     </div>
                     <div className="mt-2 space-y-1">
                       {log.items.map((item, index) => (
