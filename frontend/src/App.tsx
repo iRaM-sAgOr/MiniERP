@@ -62,7 +62,19 @@ export default function App() {
   const [authRoleType, setAuthRoleType] = useState<string>(() => localStorage.getItem('syncspace_auth_role_type') || '');
   
   const [currentMemberId, setCurrentMemberId] = useState<string>(() => localStorage.getItem('syncspace_auth_token') ? (localStorage.getItem('syncspace_current_member_id') || '') : '');
-  const [loading, setLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [punchLoading, setPunchLoading] = useState(false);
+  const [logLoading, setLogLoading] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [taskLoading, setTaskLoading] = useState(false);
+  const [projectLoading, setProjectLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'dashboard'>('home');
+  const [managerViewMode, setManagerViewMode] = useState<'manager' | 'engineer'>(
+    () => (localStorage.getItem('syncspace_manager_view') as 'manager' | 'engineer') || 'manager'
+  );
+  const [authMemberId, setAuthMemberId] = useState<string>(() => localStorage.getItem('syncspace_auth_member_id') || '');
   const [activeTab, setActiveTab] = useState<'roster' | 'allocator' | 'messages' | 'sentLogs' | 'profile'>('roster');
   const [systemAlert, setSystemAlert] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
@@ -148,11 +160,11 @@ export default function App() {
   // Load state from fullstack database API
   const fetchState = async () => {
     if (!authToken) {
-      setLoading(false);
+      setDataLoading(false);
       return;
     }
 
-    setLoading(true);
+    setDataLoading(true);
     try {
       const res = await apiFetch('/api/erp/state');
       if (res.ok) {
@@ -165,7 +177,7 @@ export default function App() {
     } catch (err) {
       console.error('Failed to query standard state:', err);
     } finally {
-      setLoading(false);
+      setDataLoading(false);
     }
   };
 
@@ -282,7 +294,7 @@ export default function App() {
   // Trigger attendance actions
   const handlePunch = async (type: 'Punch' | 'BreakStart' | 'BreakEnd' | 'ClockOut', note?: string) => {
     try {
-      setLoading(true);
+      setPunchLoading(true);
       const res = await apiFetch('/api/erp/punch', {
         method: 'POST',
         body: JSON.stringify({ userId: currentMemberId, type, note })
@@ -298,7 +310,7 @@ export default function App() {
     } catch (err) {
       triggerAlert('error', 'Error pushing attendance logs to server.');
     } finally {
-      setLoading(false);
+      setPunchLoading(false);
     }
   };
 
@@ -308,7 +320,7 @@ export default function App() {
     const tlData = selectedTL ? { name: selectedTL.name, email: selectedTL.email } : undefined;
     
     try {
-      setLoading(true);
+      setLogLoading(true);
       const res = await apiFetch('/api/erp/worklog', {
         method: 'POST',
         body: JSON.stringify({
@@ -328,14 +340,14 @@ export default function App() {
     } catch (err) {
       triggerAlert('error', 'Network failure uploading task sheets.');
     } finally {
-      setLoading(false);
+      setLogLoading(false);
     }
   };
 
   // Dispatch TL Email (Simulate save receipt)
   const handleSendEmail = async (worklogId: string, customSubject: string, customBody: string, recipientId: string) => {
     try {
-      setLoading(true);
+      setEmailLoading(true);
       const res = await apiFetch('/api/erp/send-email', {
         method: 'POST',
         body: JSON.stringify({ worklogId, customSubject, customBody, recipientId })
@@ -351,7 +363,7 @@ export default function App() {
     } catch (err) {
       triggerAlert('error', 'Network error dispatching email templates.');
     } finally {
-      setLoading(false);
+      setEmailLoading(false);
     }
   };
 
@@ -368,7 +380,7 @@ export default function App() {
     endDate?: string;
   }) => {
     try {
-      setLoading(true);
+      setTaskLoading(true);
       const res = await apiFetch('/api/erp/task', {
         method: 'POST',
         body: JSON.stringify({
@@ -386,14 +398,14 @@ export default function App() {
     } catch (err) {
       triggerAlert('error', 'Network error distributing task logs.');
     } finally {
-      setLoading(false);
+      setTaskLoading(false);
     }
   };
 
   // Create new project
   const handleCreateProject = async (name: string, description: string) => {
     try {
-      setLoading(true);
+      setProjectLoading(true);
       const res = await apiFetch('/api/manager/project', {
         method: 'POST',
         body: JSON.stringify({
@@ -412,13 +424,13 @@ export default function App() {
     } catch (err) {
       triggerAlert('error', 'Network failure connecting database gateway.');
     } finally {
-      setLoading(false);
+      setProjectLoading(false);
     }
   };
 
   const handleDeleteProject = async (projectId: string) => {
     try {
-      setLoading(true);
+      setProjectLoading(true);
       const res = await apiFetch('/api/manager/project/delete', {
         method: 'POST',
         body: JSON.stringify({ projectId, deletedBy: currentMemberId })
@@ -433,14 +445,14 @@ export default function App() {
     } catch (err) {
       triggerAlert('error', 'Network failure deleting project.');
     } finally {
-      setLoading(false);
+      setProjectLoading(false);
     }
   };
 
   // Update distributed task status
   const handleUpdateTaskStatus = async (taskId: string, status: 'Pending' | 'In Progress' | 'Completed') => {
     try {
-      setLoading(true);
+      setTaskLoading(true);
       const res = await apiFetch('/api/erp/task/update', {
         method: 'POST',
         body: JSON.stringify({ taskId, status, actorId: currentMemberId })
@@ -455,14 +467,14 @@ export default function App() {
     } catch (err) {
       triggerAlert('error', 'Task routing modification error on standard server.');
     } finally {
-      setLoading(false);
+      setTaskLoading(false);
     }
   };
 
   // Add comment to task
   const handleAddTaskComment = async (taskId: string, text: string) => {
     try {
-      setLoading(true);
+      setTaskLoading(true);
       const res = await apiFetch('/api/erp/task/comment', {
         method: 'POST',
         body: JSON.stringify({ taskId, authorId: currentMemberId, text })
@@ -478,14 +490,14 @@ export default function App() {
     } catch (err) {
       triggerAlert('error', 'Network failure adding comment.');
     } finally {
-      setLoading(false);
+      setTaskLoading(false);
     }
   };
 
   // Update task subtasks
   const handleUpdateTaskSubtasks = async (taskId: string, subtasks: any[]) => {
     try {
-      setLoading(true);
+      setTaskLoading(true);
       const res = await apiFetch('/api/erp/task/subtasks', {
         method: 'POST',
         body: JSON.stringify({ taskId, subtasks, actorId: currentMemberId })
@@ -501,14 +513,14 @@ export default function App() {
     } catch (err) {
       triggerAlert('error', 'Network failure syncing subtasks.');
     } finally {
-      setLoading(false);
+      setTaskLoading(false);
     }
   };
 
   // Full Task details update
   const handleUpdateTaskDetails = async (taskId: string, updates: any) => {
     try {
-      setLoading(true);
+      setTaskLoading(true);
       const res = await apiFetch('/api/erp/task/update', {
         method: 'POST',
         body: JSON.stringify({ taskId, actorId: currentMemberId, ...updates })
@@ -524,7 +536,7 @@ export default function App() {
     } catch (err) {
       triggerAlert('error', 'Network failure updating task files.');
     } finally {
-      setLoading(false);
+      setTaskLoading(false);
     }
   };
 
@@ -539,7 +551,7 @@ export default function App() {
     password?: string;
   }) => {
     try {
-      setLoading(true);
+      setAuthLoading(true);
       const res = await apiFetch('/api/erp/register', {
         method: 'POST',
         body: JSON.stringify({
@@ -556,6 +568,9 @@ export default function App() {
         localStorage.setItem('syncspace_current_member_id', data.member.id);
         localStorage.setItem('syncspace_auth_token', data.token);
         localStorage.setItem('syncspace_auth_role_type', data.member.roleType || 'Engineer');
+        setAuthMemberId(data.member.id);
+        localStorage.setItem('syncspace_auth_member_id', data.member.id);
+        setCurrentScreen('home');
         triggerAlert('success', `Successfully registered employee ${data.member.name} (Engineer privileges). Session started!`);
       } else {
         const err = await res.json();
@@ -564,14 +579,14 @@ export default function App() {
     } catch (err) {
       triggerAlert('error', 'Network failure registering new engineer.');
     } finally {
-      setLoading(false);
+      setAuthLoading(false);
     }
   };
 
   // Handle DB role updates ("from db we will change the role as manager")
   const handleUpdateUserRole = async (userId: string, roleType: 'Engineer' | 'Manager') => {
     try {
-      setLoading(true);
+      setTaskLoading(true);
       const res = await apiFetch('/api/erp/update-role', {
         method: 'POST',
         body: JSON.stringify({ userId, roleType })
@@ -586,7 +601,7 @@ export default function App() {
     } catch (err) {
       triggerAlert('error', 'Network error modifying database role keys.');
     } finally {
-      setLoading(false);
+      setTaskLoading(false);
     }
   };
 
@@ -599,7 +614,7 @@ export default function App() {
     breakDay: string;
   }) => {
     try {
-      setLoading(true);
+      setProfileLoading(true);
       const res = await apiFetch('/api/erp/profile', {
         method: 'POST',
         body: JSON.stringify({
@@ -629,7 +644,7 @@ export default function App() {
       }
       throw error;
     } finally {
-      setLoading(false);
+      setProfileLoading(false);
     }
   };
 
@@ -640,7 +655,7 @@ export default function App() {
     }
 
     try {
-      setLoading(true);
+      setAuthLoading(true);
       const res = await apiFetch('/api/auth/forgot-password', {
         method: 'POST',
         body: JSON.stringify({ email: forgotEmail.trim() })
@@ -656,7 +671,7 @@ export default function App() {
     } catch {
       triggerAlert('error', 'Network failure while requesting password recovery.');
     } finally {
-      setLoading(false);
+      setAuthLoading(false);
     }
   };
 
@@ -667,7 +682,7 @@ export default function App() {
     }
 
     try {
-      setLoading(true);
+      setAuthLoading(true);
       const res = await apiFetch('/api/auth/reset-password', {
         method: 'POST',
         body: JSON.stringify({
@@ -688,7 +703,7 @@ export default function App() {
     } catch {
       triggerAlert('error', 'Network failure while resetting password.');
     } finally {
-      setLoading(false);
+      setAuthLoading(false);
     }
   };
 
@@ -762,6 +777,15 @@ export default function App() {
   const activeShiftAttendees = members.filter(m => m.punchStatus === 'Active').length;
   const breakShiftAttendees = members.filter(m => m.punchStatus === 'Break').length;
   const submittedLogsTodayCount = worklogs.filter(w => w.date === todayStr).length;
+
+  // Feature: manager can toggle to engineer view (frontend-only, no DB change)
+  const effectiveRoleType: TeamMember['roleType'] =
+    authRoleType === 'Manager' && managerViewMode === 'engineer'
+      ? 'Engineer'
+      : ((currentMember?.roleType ?? authRoleType ?? 'Engineer') as TeamMember['roleType']);
+  const effectiveMember: TeamMember | null = currentMember
+    ? { ...currentMember, roleType: effectiveRoleType }
+    : null;
 
   if (!currentMember) {
     return (
@@ -893,7 +917,7 @@ export default function App() {
                           return;
                         }
                         try {
-                          setLoading(true);
+                          setAuthLoading(true);
                           const res = await apiFetch('/api/erp/login', {
                             method: 'POST',
                             body: JSON.stringify({ email: loginEmail, password: loginPassword })
@@ -906,6 +930,9 @@ export default function App() {
                             localStorage.setItem('syncspace_current_member_id', data.member.id);
                             localStorage.setItem('syncspace_auth_token', data.token);
                             localStorage.setItem('syncspace_auth_role_type', data.member.roleType || 'Engineer');
+                            setAuthMemberId(data.member.id);
+                            localStorage.setItem('syncspace_auth_member_id', data.member.id);
+                            setCurrentScreen('home');
                             triggerAlert('success', `Welcome back, ${data.member.name}! Hashed credential session starts.`);
                           } else {
                             const err = await res.json();
@@ -914,7 +941,7 @@ export default function App() {
                         } catch (err) {
                           triggerAlert('error', 'Network failure connecting authentication gateway.');
                         } finally {
-                          setLoading(false);
+                          setAuthLoading(false);
                         }
                       }}
                       className="space-y-3 text-left"
@@ -1169,6 +1196,248 @@ export default function App() {
     );
   }
 
+  // Home / welcome screen (shown after login, before entering the main ERP dashboard)
+  if (currentScreen === 'home') {
+    const totalUnseen = Array.from(unseenSenders.values()).reduce((s, n) => s + n, 0);
+    const pendingTasks = tasks.filter(t => t.assignedTo === currentMemberId && t.status !== 'Completed').length;
+    return (
+      <div className="min-h-screen bg-[#fbfaf5] text-[#3d403a] flex flex-col antialiased font-sans">
+        {systemAlert && (
+          <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full border shadow-lg text-xs font-semibold animate-bounce max-w-sm ${
+            systemAlert.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            : systemAlert.type === 'error' ? 'bg-rose-50 border-rose-200 text-rose-800'
+            : 'bg-indigo-50 border-indigo-200 text-indigo-800'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${
+              systemAlert.type === 'success' ? 'bg-emerald-500' : systemAlert.type === 'error' ? 'bg-rose-500' : 'bg-indigo-500'
+            }`} />
+            {systemAlert.text}
+          </div>
+        )}
+        <header className="bg-[#f4f1e8] border-b border-[#e2dfd2] py-3.5 px-6 sticky top-0 z-40 shadow-sm">
+          <div className="max-w-7xl mx-auto flex justify-between items-center flex-wrap gap-4">
+            <div className="flex items-center gap-2.5">
+              <img src={aiLogo} alt="AI Solution USA" className="w-10 h-10 rounded-xl object-contain border border-[#e2dfd2] bg-white p-0.5" referrerPolicy="no-referrer" />
+              <div>
+                <h1 className="text-base font-bold text-[#2d3a2a] font-serif uppercase tracking-wider leading-none">AI Solution USA</h1>
+                <span className="text-[10px] text-[#7a7d75] font-bold font-mono">Distributed Enterprise Portal</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {authRoleType === 'Manager' && (
+                <button
+                  onClick={() => {
+                    const newMode = managerViewMode === 'manager' ? 'engineer' : 'manager';
+                    setManagerViewMode(newMode);
+                    localStorage.setItem('syncspace_manager_view', newMode);
+                    if (newMode === 'engineer' && authMemberId) setCurrentMemberId(authMemberId);
+                    else if (newMode === 'manager') setShowRegForm(false);
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    managerViewMode === 'engineer'
+                      ? 'bg-slate-700 text-white border-slate-700'
+                      : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  {managerViewMode === 'engineer' ? '👷 Engineer View' : '📊 Manager View'}
+                </button>
+              )}
+              <button
+                onClick={() => setCurrentScreen('dashboard')}
+                className="flex items-center gap-1.5 px-4 py-1.5 bg-[#5a6e53] text-white text-xs font-bold rounded-xl hover:opacity-90 cursor-pointer"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                Enter Dashboard
+              </button>
+              <button
+                onClick={() => {
+                  setCurrentMemberId(''); setAuthToken(''); setAuthRoleType('');
+                  setAuthMemberId(''); setManagerViewMode('manager'); setCurrentScreen('home');
+                  localStorage.removeItem('syncspace_current_member_id');
+                  localStorage.removeItem('syncspace_auth_token');
+                  localStorage.removeItem('syncspace_auth_role_type');
+                  localStorage.removeItem('syncspace_auth_member_id');
+                  localStorage.removeItem('syncspace_manager_view');
+                  triggerAlert('info', 'Logged out successfully.');
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Log Out
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main className="max-w-7xl w-full mx-auto p-6 flex-1 space-y-8">
+          {/* Welcome banner */}
+          <section className="bg-white border border-[#e2dfd2] rounded-3xl p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <img src={currentMember.avatar} alt={currentMember.name} className="w-16 h-16 rounded-full object-cover border-2 border-[#e2dfd2]" referrerPolicy="no-referrer" />
+            <div className="flex-1">
+              <p className="text-[10px] font-bold font-mono uppercase tracking-widest text-[#5a6e53]">Welcome back</p>
+              <h2 className="text-2xl font-bold font-serif text-[#2d3a2a] leading-tight">{currentMember.name}</h2>
+              <p className="text-xs text-[#7a7d75] mt-1">{currentMember.role} · <span className="font-semibold text-[#5a6e53]">{currentMember.department}</span> · <span className="font-mono">{todayStr}</span></p>
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+                currentMember.punchStatus === 'Active' ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                : currentMember.punchStatus === 'Break' ? 'bg-amber-50 border-amber-200 text-amber-800'
+                : 'bg-slate-50 border-slate-200 text-slate-600'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  currentMember.punchStatus === 'Active' ? 'bg-emerald-500 animate-pulse'
+                  : currentMember.punchStatus === 'Break' ? 'bg-amber-400'
+                  : 'bg-slate-400'
+                }`} />
+                {currentMember.punchStatus}
+              </span>
+              <span className="text-[10px] font-mono text-[#7a7d75]">Role: <strong className="text-[#3d403a]">{effectiveRoleType}</strong></span>
+            </div>
+          </section>
+
+          {/* Quick stats */}
+          <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {effectiveRoleType === 'Manager' ? (
+              <>
+                <div className="bg-white border border-[#e2dfd2] rounded-2xl p-4 flex flex-col gap-1">
+                  <span className="text-[10px] text-[#7a7d75] font-bold uppercase font-mono">Team Online Now</span>
+                  <span className="text-2xl font-bold text-emerald-700 font-mono">{activeShiftAttendees}</span>
+                  <span className="text-[10px] text-slate-400">members clocked in</span>
+                </div>
+                <div className="bg-white border border-[#e2dfd2] rounded-2xl p-4 flex flex-col gap-1">
+                  <span className="text-[10px] text-[#7a7d75] font-bold uppercase font-mono">On Break</span>
+                  <span className="text-2xl font-bold text-amber-600 font-mono">{breakShiftAttendees}</span>
+                  <span className="text-[10px] text-slate-400">members on break</span>
+                </div>
+                <div className="bg-white border border-[#e2dfd2] rounded-2xl p-4 flex flex-col gap-1">
+                  <span className="text-[10px] text-[#7a7d75] font-bold uppercase font-mono">Worklogs Today</span>
+                  <span className="text-2xl font-bold text-[#5a6e53] font-mono">{submittedLogsTodayCount}</span>
+                  <span className="text-[10px] text-slate-400">submitted</span>
+                </div>
+                <div className="bg-white border border-[#e2dfd2] rounded-2xl p-4 flex flex-col gap-1">
+                  <span className="text-[10px] text-[#7a7d75] font-bold uppercase font-mono">Total Tasks</span>
+                  <span className="text-2xl font-bold text-[#3d403a] font-mono">{tasks.length}</span>
+                  <span className="text-[10px] text-slate-400">allocated</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="bg-white border border-[#e2dfd2] rounded-2xl p-4 flex flex-col gap-1">
+                  <span className="text-[10px] text-[#7a7d75] font-bold uppercase font-mono">My Status</span>
+                  <span className={`text-2xl font-bold font-mono ${
+                    currentMember.punchStatus === 'Active' ? 'text-emerald-700' : 'text-slate-600'
+                  }`}>{currentMember.punchStatus}</span>
+                  <span className="text-[10px] text-slate-400">attendance</span>
+                </div>
+                <div className="bg-white border border-[#e2dfd2] rounded-2xl p-4 flex flex-col gap-1">
+                  <span className="text-[10px] text-[#7a7d75] font-bold uppercase font-mono">Pending Tasks</span>
+                  <span className="text-2xl font-bold text-amber-600 font-mono">{pendingTasks}</span>
+                  <span className="text-[10px] text-slate-400">awaiting action</span>
+                </div>
+                <div className="bg-white border border-[#e2dfd2] rounded-2xl p-4 flex flex-col gap-1">
+                  <span className="text-[10px] text-[#7a7d75] font-bold uppercase font-mono">Today's Log</span>
+                  <span className={`text-2xl font-bold font-mono ${
+                    activeWorklog ? 'text-emerald-700' : 'text-rose-600'
+                  }`}>{activeWorklog ? 'Done' : 'Pending'}</span>
+                  <span className="text-[10px] text-slate-400">worklog</span>
+                </div>
+                <div className="bg-white border border-[#e2dfd2] rounded-2xl p-4 flex flex-col gap-1">
+                  <span className="text-[10px] text-[#7a7d75] font-bold uppercase font-mono">Messages</span>
+                  <span className={`text-2xl font-bold font-mono ${
+                    totalUnseen > 0 ? 'text-red-600' : 'text-[#3d403a]'
+                  }`}>{totalUnseen}</span>
+                  <span className="text-[10px] text-slate-400">unread</span>
+                </div>
+              </>
+            )}
+          </section>
+
+          {/* Quick navigation cards */}
+          <section>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#7a7d75] font-mono mb-3">Quick Access</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <button
+                onClick={() => setCurrentScreen('dashboard')}
+                className="bg-white border border-[#e2dfd2] hover:border-[#5a6e53]/40 hover:bg-[#f4f1e8]/50 rounded-3xl p-5 text-left transition-all cursor-pointer group"
+              >
+                <div className="p-2 bg-[#5a6e53]/10 text-[#5a6e53] rounded-xl w-max mb-3 group-hover:bg-[#5a6e53]/20">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <h4 className="text-sm font-bold text-[#2d3a2a] font-serif">Punch In / Out</h4>
+                <p className="text-xs text-[#7a7d75] mt-1">Manage your shift attendance and break records.</p>
+              </button>
+              <button
+                onClick={() => setCurrentScreen('dashboard')}
+                className="bg-white border border-[#e2dfd2] hover:border-[#5a6e53]/40 hover:bg-[#f4f1e8]/50 rounded-3xl p-5 text-left transition-all cursor-pointer group"
+              >
+                <div className="p-2 bg-[#5a6e53]/10 text-[#5a6e53] rounded-xl w-max mb-3 group-hover:bg-[#5a6e53]/20">
+                  <Briefcase className="w-5 h-5" />
+                </div>
+                <h4 className="text-sm font-bold text-[#2d3a2a] font-serif">Daily Work Log</h4>
+                <p className="text-xs text-[#7a7d75] mt-1">Submit your daily task log and generate AI email drafts.</p>
+              </button>
+              <button
+                onClick={() => { setCurrentScreen('dashboard'); setActiveTab('messages'); }}
+                className="relative bg-white border border-[#e2dfd2] hover:border-[#5a6e53]/40 hover:bg-[#f4f1e8]/50 rounded-3xl p-5 text-left transition-all cursor-pointer group"
+              >
+                {totalUnseen > 0 && (
+                  <span className="absolute top-3 right-3 min-w-[20px] h-5 bg-red-500 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center px-1">
+                    {totalUnseen > 99 ? '99+' : totalUnseen}
+                  </span>
+                )}
+                <div className="p-2 bg-[#5a6e53]/10 text-[#5a6e53] rounded-xl w-max mb-3 group-hover:bg-[#5a6e53]/20">
+                  <MessageSquare className="w-5 h-5" />
+                </div>
+                <h4 className="text-sm font-bold text-[#2d3a2a] font-serif">Direct Messages</h4>
+                <p className="text-xs text-[#7a7d75] mt-1">Peer-to-peer encrypted workspace correspondence.</p>
+              </button>
+              <button
+                onClick={() => { setCurrentScreen('dashboard'); setActiveTab('roster'); }}
+                className="bg-white border border-[#e2dfd2] hover:border-[#5a6e53]/40 hover:bg-[#f4f1e8]/50 rounded-3xl p-5 text-left transition-all cursor-pointer group"
+              >
+                <div className="p-2 bg-[#5a6e53]/10 text-[#5a6e53] rounded-xl w-max mb-3 group-hover:bg-[#5a6e53]/20">
+                  <Users className="w-5 h-5" />
+                </div>
+                <h4 className="text-sm font-bold text-[#2d3a2a] font-serif">{effectiveRoleType === 'Manager' ? 'Team Roster' : 'Roster & Backlog'}</h4>
+                <p className="text-xs text-[#7a7d75] mt-1">{effectiveRoleType === 'Manager' ? 'Audit team schedules, roles and productivity.' : 'View your tasks and activity history.'}</p>
+              </button>
+              <button
+                onClick={() => { setCurrentScreen('dashboard'); setActiveTab('profile'); }}
+                className="bg-white border border-[#e2dfd2] hover:border-[#5a6e53]/40 hover:bg-[#f4f1e8]/50 rounded-3xl p-5 text-left transition-all cursor-pointer group"
+              >
+                <div className="p-2 bg-[#5a6e53]/10 text-[#5a6e53] rounded-xl w-max mb-3 group-hover:bg-[#5a6e53]/20">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <h4 className="text-sm font-bold text-[#2d3a2a] font-serif">My Profile</h4>
+                <p className="text-xs text-[#7a7d75] mt-1">Update your name, avatar, schedule and department.</p>
+              </button>
+              {effectiveRoleType === 'Manager' && (
+                <button
+                  onClick={() => { setCurrentScreen('dashboard'); setActiveTab('allocator'); }}
+                  className="bg-white border border-[#e2dfd2] hover:border-[#d4a373]/40 hover:bg-[#f4f1e8]/50 rounded-3xl p-5 text-left transition-all cursor-pointer group"
+                >
+                  <div className="p-2 bg-[#d4a373]/10 text-[#d4a373] rounded-xl w-max mb-3 group-hover:bg-[#d4a373]/20">
+                    <FolderSync className="w-5 h-5" />
+                  </div>
+                  <h4 className="text-sm font-bold text-[#2d3a2a] font-serif">Task Allocator</h4>
+                  <p className="text-xs text-[#7a7d75] mt-1">Distribute and manage tasks across your engineering team.</p>
+                </button>
+              )}
+            </div>
+          </section>
+        </main>
+
+        <footer className="border-t border-[#e2dfd2] mt-12 py-6 px-6 text-center text-xs text-[#7a7d75] font-mono flex flex-col md:flex-row justify-between max-w-7xl w-full mx-auto gap-4">
+          <span>&copy; 2026 AI Solution USA. All rights reserved.</span>
+          <div className="flex justify-center gap-1.5 items-center font-semibold text-[#5a6e53]">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span className="text-[11px]">Secure Session Active</span>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#fbfaf5] text-[#3d403a] flex flex-col antialiased font-sans" id="remote-erp-root-panel">
       {/* 1. Status Toast banner */}
@@ -1211,12 +1480,12 @@ export default function App() {
             <div className="flex items-center gap-2 bg-white border border-[#e2dfd2] rounded-xl px-3 py-1.5">
               <span className="text-[10px] uppercase font-bold text-[#5a6e53] font-mono">Acting As:</span>
               {members.length > 0 && currentMember ? (
-                currentMember.roleType === 'Manager' ? (
+                authRoleType === 'Manager' && managerViewMode === 'manager' ? (
                   <select
                     className="bg-transparent border-none text-xs font-bold text-[#3d403a] focus:outline-none cursor-pointer py-0 pl-0 pr-6"
                     value={currentMemberId}
                     onChange={(e) => handleProfileSwitch(e.target.value)}
-                    disabled={loading}
+                    disabled={dataLoading}
                   >
                     {members.map(member => (
                       <option key={member.id} value={member.id}>
@@ -1236,7 +1505,33 @@ export default function App() {
 
             {/* Sync DB, and registration controller */}
             <div className="flex items-center gap-1.5 flex-wrap">
-              {currentMember && currentMember.roleType === 'Manager' && (
+              <button
+                onClick={() => setCurrentScreen('home')}
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-[#e2dfd2] bg-white hover:bg-[#f4f1e8] text-[#5a6e53] rounded-xl text-xs font-bold transition-all cursor-pointer"
+                title="Go to home screen"
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+                Home
+              </button>
+              {authRoleType === 'Manager' && (
+                <button
+                  onClick={() => {
+                    const newMode = managerViewMode === 'manager' ? 'engineer' : 'manager';
+                    setManagerViewMode(newMode);
+                    localStorage.setItem('syncspace_manager_view', newMode);
+                    if (newMode === 'engineer' && authMemberId) { setCurrentMemberId(authMemberId); setShowRegForm(false); }
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    managerViewMode === 'engineer'
+                      ? 'bg-slate-700 text-white border-slate-700'
+                      : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                  }`}
+                  title="Toggle between manager and personal engineer view"
+                >
+                  {managerViewMode === 'engineer' ? '👷 Engineer View' : '📊 Manager View'}
+                </button>
+              )}
+              {authRoleType === 'Manager' && managerViewMode === 'manager' && (
                 <button
                   onClick={() => setShowRegForm(!showRegForm)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-xl text-xs font-bold transition-all cursor-pointer ${
@@ -1249,20 +1544,21 @@ export default function App() {
               )}
               <button
                 onClick={() => { fetchState(); fetchWorklogs(); fetchMessages(); fetchProjects(); }}
-                disabled={loading}
+                disabled={dataLoading}
                 className="p-2 border border-[#e2dfd2] bg-white hover:bg-[#f4f1e8] text-[#5a6e53] rounded-xl transition-colors cursor-pointer"
                 title="Synchronize data layers with database"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-slate-400' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 ${dataLoading ? 'animate-spin text-slate-400' : ''}`} />
               </button>
               <button
                 onClick={() => {
-                  setCurrentMemberId('');
-                  setAuthToken('');
-                  setAuthRoleType('');
+                  setCurrentMemberId(''); setAuthToken(''); setAuthRoleType('');
+                  setAuthMemberId(''); setManagerViewMode('manager'); setCurrentScreen('home');
                   localStorage.removeItem('syncspace_current_member_id');
                   localStorage.removeItem('syncspace_auth_token');
                   localStorage.removeItem('syncspace_auth_role_type');
+                  localStorage.removeItem('syncspace_auth_member_id');
+                  localStorage.removeItem('syncspace_manager_view');
                   triggerAlert('info', 'Logged out successfully from remote ERP session.');
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
@@ -1279,7 +1575,7 @@ export default function App() {
 
       {/* 3. Global Activity or Personalized Metrics Band */}
       <section className="bg-white border-b border-[#e2dfd2] px-6 py-4">
-        {currentMember && currentMember.roleType === 'Manager' ? (
+        {currentMember && effectiveRoleType === 'Manager' ? (
           <div className="max-w-7xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="bg-[#f4f1e8]/30 p-3 rounded-xl border border-[#e2dfd2]/80 flex items-center justify-between">
               <div>
@@ -1485,17 +1781,17 @@ export default function App() {
               <div className="md:col-span-3 flex justify-end">
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={authLoading}
                   className="px-5 py-2.5 bg-[#d4a373] text-white text-xs font-bold rounded-xl transition-all hover:bg-[#d4a373]/95 cursor-pointer shadow-xs"
                 >
-                  {loading ? 'Adding member records...' : 'Confirm Registration (Default privileges: Engineer)'}
+                  {authLoading ? 'Adding member records...' : 'Confirm Registration (Default privileges: Engineer)'}
                 </button>
               </div>
             </form>
           </div>
         )}
         
-        {loading && members.length === 0 ? (
+        {dataLoading && members.length === 0 ? (
           /* Sourcing skeletons */
           <div className="flex flex-col items-center justify-center py-32 space-y-4">
             <svg className="animate-spin h-8 w-8 text-[#5a6e53]" fill="none" viewBox="0 0 24 24">
@@ -1543,21 +1839,21 @@ export default function App() {
                   {/* Attendance Shift Control */}
                   {currentMember && (
                     <PunchCard
-                      currentMember={currentMember}
+                      currentMember={effectiveMember!}
                       punchesForToday={punchesForToday}
                       onPunch={handlePunch}
-                      loading={loading}
+                      loading={punchLoading}
                     />
                   )}
 
                   {/* Daily Work Logger Form */}
                   {currentMember && (
                     <WorkLogForm
-                      currentMember={currentMember}
+                      currentMember={effectiveMember!}
                       teamLeads={teamLeads}
                       savedWorkLog={activeWorklog}
                       onSubmitLog={handleLogSubmit}
-                      loading={loading}
+                      loading={logLoading}
                       tasks={tasks}
                       projects={projects}
                     />
@@ -1569,10 +1865,10 @@ export default function App() {
               <div className="lg:col-span-1">
                 <EmailDraftCard
                   worklog={activeWorklog}
-                  currentMember={currentMember}
+                  currentMember={effectiveMember!}
                   members={members}
                   onSendEmail={handleSendEmail}
-                  loading={loading}
+                  loading={emailLoading}
                 />
               </div>
 
@@ -1641,7 +1937,7 @@ export default function App() {
 
               {activeTab === 'roster' && currentMember && (
                 <TeamDashboard
-                  currentMember={currentMember}
+                  currentMember={effectiveMember!}
                   members={members}
                   punches={punches}
                   tasks={tasks}
@@ -1650,7 +1946,7 @@ export default function App() {
                   onAddComment={handleAddTaskComment}
                   onUpdateSubtasks={handleUpdateTaskSubtasks}
                   onUpdateTaskDetails={handleUpdateTaskDetails}
-                  loading={loading}
+                  loading={taskLoading}
                   onUpdateUserRole={handleUpdateUserRole}
                   onGeneratePasswordResetToken={handleManagerGeneratePasswordReset}
                 />
@@ -1658,13 +1954,13 @@ export default function App() {
 
               {activeTab === 'allocator' && currentMember && (
                 <TaskAllocator
-                  currentMember={currentMember}
+                  currentMember={effectiveMember!}
                   members={members}
                   projects={projects}
                   onAssignTask={handleAssignTask}
                   onCreateProject={handleCreateProject}
                   onDeleteProject={handleDeleteProject}
-                  loading={loading}
+                  loading={taskLoading || projectLoading}
                 />
               )}
 
@@ -1676,7 +1972,7 @@ export default function App() {
                       <p className="text-xs text-[#7a7d75]">Encrypted remote correspondence workspace</p>
                     </div>
                     <span className="text-[10px] font-bold text-[#5a6e53] font-mono bg-[#f4f1e8] border border-[#e2dfd2] px-2.5 py-0.5 rounded-full">
-                      Logged in: {currentMember.name} ({currentMember.roleType})
+                      Logged in: {currentMember.name} ({effectiveRoleType})
                     </span>
                   </div>
                   
@@ -1816,8 +2112,8 @@ export default function App() {
 
               {activeTab === 'profile' && currentMember && (
                 <ProfileManagement
-                  currentMember={currentMember}
-                  loading={loading}
+                  currentMember={effectiveMember!}
+                  loading={profileLoading}
                   onUpdateProfile={handleUpdateProfile}
                 />
               )}
@@ -1827,14 +2123,14 @@ export default function App() {
                   <div className="flex items-center justify-between pb-3 border-b border-[#e2dfd2] mb-4">
                     <h3 className="font-semibold text-[#2d3a2a] text-sm font-serif">TL Dispatch & Send Log Index</h3>
                     <span className="text-xs font-mono font-bold text-[#5a6e53] bg-[#f4f1e8] px-2.5 py-0.5 rounded-lg border border-[#e2dfd2]/60">
-                      Total sent: {currentMember && currentMember.roleType === 'Manager' 
+                      Total sent: {currentMember && effectiveRoleType === 'Manager' 
                         ? sentEmailsLog.length 
                         : sentEmailsLog.filter((log: any) => log.senderId === currentMemberId).length}
                     </span>
                   </div>
 
                   {(() => {
-                    const filteredEmails = currentMember && currentMember.roleType === 'Manager'
+                    const filteredEmails = currentMember && effectiveRoleType === 'Manager'
                       ? sentEmailsLog
                       : sentEmailsLog.filter((log: any) => log.senderId === currentMemberId);
 
