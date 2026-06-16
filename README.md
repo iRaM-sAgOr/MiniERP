@@ -291,3 +291,8 @@ pm2 status
 pm2 logs minierp-frontend
 pm2 restart minierp-frontend
 ```
+
+
+// Feature plan
+1. In the frontend there are many calculations, but those calculation should have api and frontend should only get the related data.
+2. the local development should have completely different dockerFile/composer/db with same migration 
