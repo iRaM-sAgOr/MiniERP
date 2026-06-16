@@ -116,6 +116,110 @@ export function getDailyWorked(allPunches: PunchRecord[], userId: string): Map<s
   return result;
 }
 
+export interface DayAttendance {
+  date: string;
+  firstPunchIn: string | null;   // ISO timestamp of the very first Punch event
+  lastClockOut: string | null;   // ISO timestamp of the last ClockOut event (null if capped)
+  workedMinutes: number;
+  breakMinutes: number;
+  isCapped: boolean;             // true = day ended without ClockOut
+  sessionCount: number;          // number of distinct Punch events
+}
+
+/**
+ * Returns a full day attendance breakdown from a day's punch records.
+ * Returns null if there are no Punch records at all.
+ */
+export function getDayAttendance(dayPunches: PunchRecord[]): DayAttendance | null {
+  if (!dayPunches || dayPunches.length === 0) return null;
+
+  const sorted = [...dayPunches].sort(
+    (a, b) => new Date(a.clockIn).getTime() - new Date(b.clockIn).getTime()
+  );
+
+  const date = sorted[0].date;
+  const punchEvents = sorted.filter(p => p.type === 'Punch');
+  if (punchEvents.length === 0) return null;
+
+  const dayEndMs = new Date(`${date}T23:59:59`).getTime();
+  const firstPunchIn = punchEvents[0].clockIn;
+
+  const clockOutEvents = sorted.filter(p => p.type === 'ClockOut');
+  const lastClockOutEvent = clockOutEvents.length > 0 ? clockOutEvents[clockOutEvents.length - 1] : null;
+  const lastClockOut = lastClockOutEvent ? lastClockOutEvent.clockIn : null;
+
+  // Reuse state machine logic but also track break time
+  let totalWorkedMs = 0;
+  let totalBreakMs = 0;
+  let segmentStartMs: number | null = null;
+  let breakStartMs: number | null = null;
+  let segmentBreakMs = 0;
+  let sessionOpen = false;
+
+  for (const p of sorted) {
+    const t = new Date(p.clockIn).getTime();
+
+    if (p.type === 'Punch') {
+      if (segmentStartMs !== null) {
+        if (breakStartMs !== null) {
+          const bDur = Math.max(0, t - breakStartMs);
+          segmentBreakMs += bDur;
+          totalBreakMs += bDur;
+          breakStartMs = null;
+        }
+        totalWorkedMs += Math.max(0, t - segmentStartMs - segmentBreakMs);
+      }
+      segmentStartMs = t;
+      breakStartMs = null;
+      segmentBreakMs = 0;
+      sessionOpen = true;
+    } else if (p.type === 'BreakStart') {
+      if (segmentStartMs !== null && breakStartMs === null) breakStartMs = t;
+    } else if (p.type === 'BreakEnd') {
+      if (breakStartMs !== null) {
+        const bDur = Math.max(0, t - breakStartMs);
+        segmentBreakMs += bDur;
+        totalBreakMs += bDur;
+        breakStartMs = null;
+      }
+    } else if (p.type === 'ClockOut') {
+      if (segmentStartMs !== null) {
+        if (breakStartMs !== null) {
+          const bDur = Math.max(0, t - breakStartMs);
+          segmentBreakMs += bDur;
+          totalBreakMs += bDur;
+          breakStartMs = null;
+        }
+        totalWorkedMs += Math.max(0, t - segmentStartMs - segmentBreakMs);
+        segmentStartMs = null;
+        segmentBreakMs = 0;
+        sessionOpen = false;
+      }
+    }
+  }
+
+  const isCapped = sessionOpen;
+  if (segmentStartMs !== null) {
+    const capMs = dayEndMs;
+    if (breakStartMs !== null) {
+      const bDur = Math.max(0, capMs - breakStartMs);
+      segmentBreakMs += bDur;
+      totalBreakMs += bDur;
+    }
+    totalWorkedMs += Math.max(0, capMs - segmentStartMs - segmentBreakMs);
+  }
+
+  return {
+    date,
+    firstPunchIn,
+    lastClockOut,
+    workedMinutes: Math.max(0, Math.round(totalWorkedMs / (1000 * 60))),
+    breakMinutes: Math.max(0, Math.round(totalBreakMs / (1000 * 60))),
+    isCapped,
+    sessionCount: punchEvents.length,
+  };
+}
+
 /**
  * True when every punch-in cycle has a corresponding ClockOut (no open session).
  * Works correctly with multiple punch-in/out cycles in a day.
