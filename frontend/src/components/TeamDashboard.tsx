@@ -17,17 +17,18 @@ import {
   ArrowDownCircle,
   Minus
 } from 'lucide-react';
-import { TeamMember, TaskDistribution, WorkLog } from '../types';
+import { TeamMember, TaskDistribution, WorkLog, AttendanceData, DayAttendanceRow } from '../types';
 import TaskDetailsDialog from './TaskDetailsDialog';
 import AttendanceLog from './AttendanceLog';
-import { computeWorkedMinutes, formatDuration, getDailyWorked, hasClockedOut } from '../utils/punchDuration';
+import { formatDuration } from '../utils/punchDuration';
 
 interface TeamDashboardProps {
   currentMember: TeamMember;
   members: TeamMember[];
-  punches: any[];
   tasks: TaskDistribution[];
   worklogs: WorkLog[];
+  attendance?: AttendanceData;
+  onFetchAttendanceMonth: (memberId: string, year: number, month: number) => Promise<DayAttendanceRow[]>;
   onUpdateTaskStatus: (taskId: string, status: 'Pending' | 'In Progress' | 'Completed') => Promise<void>;
   onAddComment: (taskId: string, text: string) => Promise<void>;
   onUpdateSubtasks: (taskId: string, subtasks: any[]) => Promise<void>;
@@ -40,9 +41,10 @@ interface TeamDashboardProps {
 export default function TeamDashboard({
   currentMember,
   members,
-  punches,
   tasks,
   worklogs,
+  attendance,
+  onFetchAttendanceMonth,
   onUpdateTaskStatus,
   onAddComment,
   onUpdateSubtasks,
@@ -96,19 +98,15 @@ export default function TeamDashboard({
 
   const engineerMembers = members.filter(member => member.roleType === 'Engineer');
   const managerAnalyticsRows = engineerMembers.map(engineer => {
-    // Punch-based per-day durations (source of truth for worked hours)
-    const dailyWorked = getDailyWorked(punches, engineer.id);
-    const punchDailyItems = Array.from(dailyWorked.entries())
-      .sort((a, b) => b[0].localeCompare(a[0]))
+    const stat = attendance?.engineerStats?.find(s => s.memberId === engineer.id);
+    const punchDailyItems = (stat?.last7Days ?? [])
+      .slice()
+      .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, 7)
-      .map(([date, minutes]) => ({ date, minutes }));
+      .map(d => ({ date: d.date, minutes: d.workedMinutes }));
 
-    const todayWorkedMinutes = computeWorkedMinutes(
-      punches.filter((p: any) => p.userId === engineer.id && p.date === todayDateKey)
-    );
-    const todayClockedOut = hasClockedOut(
-      punches.filter((p: any) => p.userId === engineer.id && p.date === todayDateKey)
-    );
+    const todayWorkedMinutes = stat?.todayWorkedMinutes ?? 0;
+    const todayClockedOut = stat?.isClockedOut ?? false;
 
     const completedTasks = tasks.filter(t => t.assignedTo === engineer.id && t.status === 'Completed').length;
 
@@ -186,15 +184,11 @@ export default function TeamDashboard({
 
               {/* Personal hours tracked */}
               {(() => {
-                const myTodayWorked = computeWorkedMinutes(
-                  punches.filter((p: any) => p.userId === currentMember.id && p.date === todayDateKey)
-                );
-                const myTodayClockedOut = hasClockedOut(
-                  punches.filter((p: any) => p.userId === currentMember.id && p.date === todayDateKey)
-                );
-                const myDailyWorked = getDailyWorked(punches, currentMember.id);
-                const myPunchHistory = Array.from(myDailyWorked.entries())
-                  .sort((a, b) => b[0].localeCompare(a[0]))
+                const myTodayWorked = attendance?.self.todayWorkedMinutes ?? 0;
+                const myTodayClockedOut = attendance?.self.isClockedOut ?? false;
+                const myPunchHistory = (attendance?.self.last7Days ?? [])
+                  .slice()
+                  .sort((a, b) => b.date.localeCompare(a.date))
                   .slice(0, 7);
 
                 return (
@@ -221,10 +215,10 @@ export default function TeamDashboard({
                       <div className="bg-[#f4f1e8]/20 border border-[#e2dfd2]/80 p-3 rounded-2xl">
                         <span className="text-[10px] font-bold text-[#3d403a] uppercase tracking-wider font-mono block mb-2">My Punch-Based Duration (last 7 days)</span>
                         <div className="flex flex-wrap gap-1.5">
-                          {myPunchHistory.map(([date, minutes]) => (
-                            <div key={date} className="text-center bg-white border border-[#e2dfd2] rounded-lg px-2 py-1">
-                              <span className="text-[9px] text-[#7a7d75] font-mono block">{date.slice(5)}</span>
-                              <span className="text-xs font-bold font-mono text-[#5a6e53]">{formatDuration(minutes)}</span>
+                          {myPunchHistory.map((d) => (
+                            <div key={d.date} className="text-center bg-white border border-[#e2dfd2] rounded-lg px-2 py-1">
+                              <span className="text-[9px] text-[#7a7d75] font-mono block">{d.date.slice(5)}</span>
+                              <span className="text-xs font-bold font-mono text-[#5a6e53]">{formatDuration(d.workedMinutes)}</span>
                             </div>
                           ))}
                         </div>
@@ -757,7 +751,7 @@ export default function TeamDashboard({
       <div className="lg:col-span-2">
         <AttendanceLog
           members={members}
-          punches={punches}
+          onFetchMonth={onFetchAttendanceMonth}
           currentMember={currentMember}
           isManager={isManager}
         />

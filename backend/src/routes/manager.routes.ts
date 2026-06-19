@@ -18,6 +18,7 @@ import {
 import { getProjects } from "../controllers/project.controller.js";
 import { getWorkLogs } from "../controllers/worklog.controller.js";
 import { getMessages } from "../controllers/message.controller.js";
+import { getAttendance } from "../controllers/attendance.controller.js";
 import { requireAuth, requireRole } from "../middleware/auth.middleware.js";
 
 const router = Router();
@@ -28,6 +29,7 @@ router.get("/state", getManagerState);
 router.get("/projects", getProjects);
 router.get("/worklogs", getWorkLogs);
 router.get("/messages", getMessages);
+router.get("/attendance", getAttendance);
 router.post("/punch", punch);
 router.post("/worklog", worklog);
 router.post("/send-email", sendEmail);

@@ -108,3 +108,43 @@ export interface TaskDistribution {
   history?: TaskHistoryEvent[];
   subtasks?: TaskSubtask[];
 }
+
+// ─── Attendance (computed by backend) ────────────────────────────────────────
+
+export interface DayAttendanceRow {
+  date: string;
+  firstPunchIn: string | null;
+  lastClockOut: string | null;
+  workedMinutes: number;
+  breakMinutes: number;
+  isCapped: boolean;
+  sessionCount: number;
+}
+
+export interface AttendanceDaySummary {
+  date: string;
+  workedMinutes: number;
+  isClockedOut: boolean;
+}
+
+export interface SelfAttendance {
+  todayWorkedMinutes: number;
+  isClockedOut: boolean;
+  last7Days: AttendanceDaySummary[];
+}
+
+export interface EngineerAttendanceStat {
+  memberId: string;
+  todayWorkedMinutes: number;
+  isClockedOut: boolean;
+  last7Days: AttendanceDaySummary[];
+  completedTasks: number;
+}
+
+export interface AttendanceData {
+  self: SelfAttendance;
+  monthRows: DayAttendanceRow[];
+  monthMemberId: string;
+  engineerStats?: EngineerAttendanceStat[];
+}
+

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createApiFetch } from '../api/apiFetch';
-import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage, EnterpriseProject } from '../types';
+import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage, EnterpriseProject, AttendanceData, DayAttendanceRow } from '../types';
 import { upsertMessage } from './useChatSocket';
 
 export type ActiveTab = 'roster' | 'allocator' | 'messages' | 'sentLogs' | 'profile';
@@ -15,6 +15,7 @@ export interface ErpState {
   sentEmailsLog: any[];
   messages: DirectMessage[];
   projects: EnterpriseProject[];
+  attendance: AttendanceData | null;
 
   // Auth
   authToken: string;
@@ -92,6 +93,8 @@ export interface ErpState {
   handleLogout: () => void;
   refetchAll: () => void;
   fetchMessages: () => Promise<void>;
+  fetchAttendance: () => Promise<void>;
+  fetchAttendanceForMonth: (memberId: string, year: number, month: number) => Promise<DayAttendanceRow[]>;
 }
 
 export function useErpState(): ErpState {
@@ -102,6 +105,7 @@ export function useErpState(): ErpState {
   const [sentEmailsLog, setSentEmailsLog] = useState<any[]>([]);
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [projects, setProjects] = useState<EnterpriseProject[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceData | null>(null);
 
   const [authToken, setAuthToken] = useState<string>(
     () => localStorage.getItem('syncspace_auth_token') || ''
@@ -213,12 +217,45 @@ export function useErpState(): ErpState {
     }
   }, [authToken, apiFetch]);
 
+  const fetchAttendance = useCallback(async () => {
+    if (!authToken) return;
+    try {
+      const res = await apiFetch('/api/erp/attendance');
+      if (res.ok) {
+        const data = await res.json();
+        setAttendance(data);
+      }
+    } catch (err) {
+      console.error('Failed to query attendance:', err);
+    }
+  }, [authToken, apiFetch]);
+
+  const fetchAttendanceForMonth = useCallback(async (
+    memberId: string,
+    year: number,
+    month: number // 0-indexed
+  ): Promise<DayAttendanceRow[]> => {
+    if (!authToken) return [];
+    try {
+      const params = new URLSearchParams({ memberId, year: String(year), month: String(month) });
+      const res = await apiFetch(`/api/erp/attendance?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        return data.monthRows ?? [];
+      }
+    } catch (err) {
+      console.error('Failed to query attendance month:', err);
+    }
+    return [];
+  }, [authToken, apiFetch]);
+
   const refetchAll = useCallback(() => {
     fetchState();
     fetchWorklogs();
     fetchMessages();
     fetchProjects();
-  }, [fetchState, fetchWorklogs, fetchMessages, fetchProjects]);
+    fetchAttendance();
+  }, [fetchState, fetchWorklogs, fetchMessages, fetchProjects, fetchAttendance]);
 
   useEffect(() => { refetchAll(); }, [authToken]);
 
@@ -239,6 +276,7 @@ export function useErpState(): ErpState {
         const data = await res.json();
         setMembers(data.state.members);
         setPunches(data.state.punches);
+        await fetchAttendance();
         triggerAlert('success', `Shift state converted successfully: ${type}`);
       } else {
         triggerAlert('error', 'Server rejected shift code submission.');
@@ -248,9 +286,7 @@ export function useErpState(): ErpState {
     } finally {
       setPunchLoading(false);
     }
-  }, [apiFetch, currentMemberId, triggerAlert]);
-
-  const handleLogSubmit = useCallback(async (items: LogItem[], tlId: string) => {
+  }, [apiFetch, currentMemberId, fetchAttendance, triggerAlert]); = useCallback(async (items: LogItem[], tlId: string) => {
     const selectedTL = members.find(m => m.id === tlId);
     const tlData = selectedTL ? { name: selectedTL.name, email: selectedTL.email } : undefined;
     try {
@@ -673,7 +709,7 @@ export function useErpState(): ErpState {
     : null;
 
   return {
-    members, punches, worklogs, tasks, sentEmailsLog, messages, projects,
+    members, punches, worklogs, tasks, sentEmailsLog, messages, projects, attendance,
     authToken, authRoleType, authMemberId, currentMemberId,
     dataLoading, punchLoading, logLoading, emailLoading,
     taskLoading, projectLoading, profileLoading, authLoading,
@@ -692,5 +728,6 @@ export function useErpState(): ErpState {
     handleForgotPassword, handleResetPassword,
     handleManagerGeneratePasswordReset, handleSendMessage,
     handleLogout, refetchAll, fetchMessages,
+    fetchAttendance, fetchAttendanceForMonth,
   };
 }

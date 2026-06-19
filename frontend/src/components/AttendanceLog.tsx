@@ -1,11 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Clock, AlertCircle } from 'lucide-react';
-import { TeamMember, PunchRecord } from '../types';
-import { getDayAttendance, DayAttendance, formatDuration } from '../utils/punchDuration';
+import { TeamMember, DayAttendanceRow } from '../types';
+import { formatDuration } from '../utils/punchDuration';
 
 interface AttendanceLogProps {
   members: TeamMember[];
-  punches: PunchRecord[];
+  onFetchMonth: (memberId: string, year: number, month: number) => Promise<DayAttendanceRow[]>;
   currentMember: TeamMember;
   isManager: boolean;
 }
@@ -28,15 +28,29 @@ function fmtDate(date: string): string {
   });
 }
 
-export default function AttendanceLog({ members, punches, currentMember, isManager }: AttendanceLogProps) {
+export default function AttendanceLog({ members, onFetchMonth, currentMember, isManager }: AttendanceLogProps) {
   const now = new Date();
   const [selectedMemberId, setSelectedMemberId] = useState(currentMember.id);
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth()); // 0-indexed
   const [page, setPage] = useState(1);
+  const [attendanceRows, setAttendanceRows] = useState<DayAttendanceRow[]>([]);
+  const [fetchingMonth, setFetchingMonth] = useState(false);
 
   const isCurrentMonth = viewYear === now.getFullYear() && viewMonth === now.getMonth();
   const isMaxMonth = isCurrentMonth;
+
+  useEffect(() => {
+    let cancelled = false;
+    setFetchingMonth(true);
+    onFetchMonth(selectedMemberId, viewYear, viewMonth).then(rows => {
+      if (!cancelled) {
+        setAttendanceRows(rows.slice().sort((a, b) => b.date.localeCompare(a.date)));
+        setFetchingMonth(false);
+      }
+    }).catch(() => { if (!cancelled) setFetchingMonth(false); });
+    return () => { cancelled = true; };
+  }, [selectedMemberId, viewYear, viewMonth]);
 
   const goToPrevMonth = () => {
     setPage(1);
@@ -55,28 +69,6 @@ export default function AttendanceLog({ members, punches, currentMember, isManag
     setSelectedMemberId(id);
     setPage(1);
   };
-
-  // All punch records for selected member grouped by date, for the selected month
-  const attendanceRows: DayAttendance[] = useMemo(() => {
-    const byDate = new Map<string, PunchRecord[]>();
-    for (const p of punches) {
-      if (p.userId !== selectedMemberId) continue;
-      const d = new Date(p.clockIn);
-      if (d.getFullYear() !== viewYear || d.getMonth() !== viewMonth) continue;
-      const dateKey = p.date;
-      const list = byDate.get(dateKey) || [];
-      list.push(p);
-      byDate.set(dateKey, list);
-    }
-
-    const rows: DayAttendance[] = [];
-    for (const [, records] of byDate.entries()) {
-      const att = getDayAttendance(records);
-      if (att) rows.push(att);
-    }
-
-    return rows.sort((a, b) => b.date.localeCompare(a.date)); // newest first
-  }, [punches, selectedMemberId, viewYear, viewMonth]);
 
   const totalWorked = attendanceRows.reduce((s, r) => s + r.workedMinutes, 0);
   const totalBreak = attendanceRows.reduce((s, r) => s + r.breakMinutes, 0);
@@ -181,7 +173,11 @@ export default function AttendanceLog({ members, punches, currentMember, isManag
       </div>
 
       {/* Table */}
-      {attendanceRows.length === 0 ? (
+      {fetchingMonth ? (
+        <div className="flex flex-col items-center justify-center py-12 border border-dashed border-[#e2dfd2] rounded-2xl bg-[#f4f1e8]/10 gap-2">
+          <p className="text-xs text-[#7a7d75] font-semibold">Loading attendance data…</p>
+        </div>
+      ) : attendanceRows.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 border border-dashed border-[#e2dfd2] rounded-2xl bg-[#f4f1e8]/10 gap-2">
           <AlertCircle className="w-6 h-6 text-[#c5c2b8]" />
           <p className="text-xs text-[#7a7d75] font-semibold">No punch records for {MONTH_NAMES[viewMonth]} {viewYear}</p>
@@ -236,7 +232,7 @@ export default function AttendanceLog({ members, punches, currentMember, isManag
   );
 }
 
-function AttendanceRow({ row }: { row: DayAttendance }) {
+function AttendanceRow({ row }: { row: DayAttendanceRow }) {
   return (
     <div className={`grid grid-cols-[80px_1fr_80px_80px_70px_80px_90px] gap-2 items-center px-3 py-2.5 rounded-xl border text-xs transition-colors ${
       row.isCapped

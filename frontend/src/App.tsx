@@ -133,7 +133,7 @@ export default function App() {
       effectiveRoleType={erp.effectiveRoleType}
       teamLeads={erp.teamLeads}
       todayStr={erp.todayStr}
-      punchesForToday={erp.punchesForToday}
+      attendance={erp.attendance}
       activeWorklog={erp.activeWorklog}
       activeShiftAttendees={erp.activeShiftAttendees}
       breakShiftAttendees={erp.breakShiftAttendees}
@@ -174,6 +174,7 @@ export default function App() {
       handleSendMessage={erp.handleSendMessage}
       handleLogout={erp.handleLogout}
       refetchAll={erp.refetchAll}
+      onFetchAttendanceMonth={erp.fetchAttendanceForMonth}
     />
   );
 }

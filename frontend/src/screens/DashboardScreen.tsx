@@ -11,7 +11,7 @@ import ProfileManagement from '../components/ProfileManagement';
 import MessagesPanel from '../components/MessagesPanel';
 import SentEmailsPanel from '../components/SentEmailsPanel';
 import RegistrationFormCard from '../components/RegistrationFormCard';
-import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage, EnterpriseProject } from '../types';
+import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage, EnterpriseProject, AttendanceData, DayAttendanceRow } from '../types';
 import { ActiveTab, Screen } from '../hooks/useErpState';
 // @ts-ignore
 import aiLogo from '../assets/images/ai_solution_usa_logo_1780158886266.png';
@@ -38,8 +38,8 @@ interface DashboardScreenProps {
   effectiveRoleType: TeamMember['roleType'];
   teamLeads: TeamMember[];
   todayStr: string;
-  punchesForToday: PunchRecord[];
   activeWorklog: WorkLog | null;
+  attendance: AttendanceData | null;
   activeShiftAttendees: number;
   breakShiftAttendees: number;
   submittedLogsTodayCount: number;
@@ -87,6 +87,7 @@ interface DashboardScreenProps {
   handleSendMessage: (receiverId: string, text: string, socketRef: React.MutableRefObject<any>) => Promise<void>;
   handleLogout: () => void;
   refetchAll: () => void;
+  onFetchAttendanceMonth: (memberId: string, year: number, month: number) => Promise<DayAttendanceRow[]>;
 }
 
 export default function DashboardScreen(props: DashboardScreenProps) {
@@ -94,7 +95,7 @@ export default function DashboardScreen(props: DashboardScreenProps) {
     members, punches, worklogs, tasks, sentEmailsLog, messages, projects,
     authRoleType, authMemberId, currentMemberId, managerViewMode,
     currentMember, effectiveMember, effectiveRoleType,
-    teamLeads, todayStr, punchesForToday, activeWorklog,
+    teamLeads, todayStr, attendance, activeWorklog,
     activeShiftAttendees, breakShiftAttendees, submittedLogsTodayCount,
     dataLoading, punchLoading, logLoading, emailLoading,
     taskLoading, projectLoading, profileLoading, authLoading,
@@ -106,7 +107,7 @@ export default function DashboardScreen(props: DashboardScreenProps) {
     handleUpdateTaskStatus, handleAddTaskComment, handleUpdateTaskSubtasks,
     handleUpdateTaskDetails, handleRegisterUser, handleUpdateUserRole,
     handleUpdateProfile, handleManagerGeneratePasswordReset,
-    handleSendMessage, handleLogout, refetchAll,
+    handleSendMessage, handleLogout, refetchAll, onFetchAttendanceMonth,
   } = props;
 
   const [showRegForm, setShowRegForm] = useState(false);
@@ -259,7 +260,7 @@ export default function DashboardScreen(props: DashboardScreenProps) {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <PunchCard currentMember={effectiveMember} punchesForToday={punchesForToday} onPunch={handlePunch} loading={punchLoading} />
+                  <PunchCard currentMember={effectiveMember} todayWorkedMinutes={attendance?.self.todayWorkedMinutes ?? 0} isClockedOut={attendance?.self.isClockedOut ?? false} onPunch={handlePunch} loading={punchLoading} />
                   <WorkLogForm currentMember={effectiveMember} teamLeads={teamLeads} savedWorkLog={activeWorklog} onSubmitLog={handleLogSubmit} loading={logLoading} tasks={tasks} projects={projects} />
                 </div>
               </div>
@@ -307,9 +308,10 @@ export default function DashboardScreen(props: DashboardScreenProps) {
                 <TeamDashboard
                   currentMember={effectiveMember}
                   members={members}
-                  punches={punches}
                   tasks={tasks}
                   worklogs={worklogs}
+                  attendance={attendance ?? undefined}
+                  onFetchAttendanceMonth={onFetchAttendanceMonth}
                   onUpdateTaskStatus={handleUpdateTaskStatus}
                   onAddComment={handleAddTaskComment}
                   onUpdateSubtasks={handleUpdateTaskSubtasks}
