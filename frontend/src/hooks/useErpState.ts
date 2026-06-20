@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, SetStateAction } from 'react';
 import { createApiFetch } from '../api/apiFetch';
 import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage, EnterpriseProject, AttendanceData, DayAttendanceRow } from '../types';
 import { upsertMessage } from './useChatSocket';
@@ -286,7 +286,9 @@ export function useErpState(): ErpState {
     } finally {
       setPunchLoading(false);
     }
-  }, [apiFetch, currentMemberId, fetchAttendance, triggerAlert]); = useCallback(async (items: LogItem[], tlId: string) => {
+  }, [apiFetch, currentMemberId, fetchAttendance, triggerAlert]);
+
+  const handleLogSubmit = useCallback(async (items: LogItem[], tlId: string) => {
     const selectedTL = members.find(m => m.id === tlId);
     const tlData = selectedTL ? { name: selectedTL.name, email: selectedTL.email } : undefined;
     try {
@@ -709,25 +711,25 @@ export function useErpState(): ErpState {
     : null;
 
   return {
-    members, punches, worklogs, tasks, sentEmailsLog, messages, projects, attendance,
-    authToken, authRoleType, authMemberId, currentMemberId,
-    dataLoading, punchLoading, logLoading, emailLoading,
-    taskLoading, projectLoading, profileLoading, authLoading,
-    currentScreen, managerViewMode, activeTab, systemAlert,
-    currentMember, effectiveMember, effectiveRoleType,
-    teamLeads, todayStr, punchesForToday, activeWorklog,
-    activeShiftAttendees, breakShiftAttendees, submittedLogsTodayCount,
-    setMessages, setCurrentMemberId, setCurrentScreen,
-    setManagerViewMode, setActiveTab,
-    triggerAlert, handleProfileSwitch,
+  members, punches, worklogs, tasks, sentEmailsLog, messages, projects, attendance,
+  authToken, authRoleType, authMemberId, currentMemberId,
+  dataLoading, punchLoading, logLoading, emailLoading,
+  taskLoading, projectLoading, profileLoading, authLoading,
+  currentScreen, managerViewMode, activeTab, systemAlert,
+  currentMember, effectiveMember, effectiveRoleType,
+  teamLeads, todayStr, punchesForToday, activeWorklog,
+  activeShiftAttendees, breakShiftAttendees, submittedLogsTodayCount,
+  setMessages, setCurrentMemberId, setCurrentScreen,
+  setManagerViewMode, setActiveTab,
+  triggerAlert, handleProfileSwitch,
     handlePunch, handleLogSubmit, handleSendEmail,
-    handleAssignTask, handleCreateProject, handleDeleteProject,
-    handleUpdateTaskStatus, handleAddTaskComment,
-    handleUpdateTaskSubtasks, handleUpdateTaskDetails,
-    handleRegisterUser, handleUpdateUserRole, handleUpdateProfile,
-    handleForgotPassword, handleResetPassword,
-    handleManagerGeneratePasswordReset, handleSendMessage,
-    handleLogout, refetchAll, fetchMessages,
-    fetchAttendance, fetchAttendanceForMonth,
-  };
+  handleAssignTask, handleCreateProject, handleDeleteProject,
+  handleUpdateTaskStatus, handleAddTaskComment,
+  handleUpdateTaskSubtasks, handleUpdateTaskDetails,
+  handleRegisterUser, handleUpdateUserRole, handleUpdateProfile,
+  handleForgotPassword, handleResetPassword,
+  handleManagerGeneratePasswordReset, handleSendMessage,
+  handleLogout, refetchAll, fetchMessages,
+  fetchAttendance, fetchAttendanceForMonth,
+};
 }

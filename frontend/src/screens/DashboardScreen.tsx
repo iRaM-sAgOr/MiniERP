@@ -115,6 +115,9 @@ export default function DashboardScreen(props: DashboardScreenProps) {
   const [typedMessage, setTypedMessage] = useState('');
 
   const totalUnseen = Array.from(unseenSenders.values()).reduce((s, n) => s + n, 0);
+  const punchesForToday = punches
+    .filter(p => p.userId === effectiveMember.id && p.date === todayStr)
+    .sort((a, b) => new Date(a.clockIn).getTime() - new Date(b.clockIn).getTime());
 
   const handleSelectChatUser = (id: string) => {
     setSelectedChatUserId(id);
@@ -260,7 +263,7 @@ export default function DashboardScreen(props: DashboardScreenProps) {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <PunchCard currentMember={effectiveMember} todayWorkedMinutes={attendance?.self.todayWorkedMinutes ?? 0} isClockedOut={attendance?.self.isClockedOut ?? false} onPunch={handlePunch} loading={punchLoading} />
+                  <PunchCard currentMember={effectiveMember} punchesForToday={punchesForToday} todayWorkedMinutes={attendance?.self.todayWorkedMinutes ?? 0} isClockedOut={attendance?.self.isClockedOut ?? false} onPunch={handlePunch} loading={punchLoading} />
                   <WorkLogForm currentMember={effectiveMember} teamLeads={teamLeads} savedWorkLog={activeWorklog} onSubmitLog={handleLogSubmit} loading={logLoading} tasks={tasks} projects={projects} />
                 </div>
               </div>

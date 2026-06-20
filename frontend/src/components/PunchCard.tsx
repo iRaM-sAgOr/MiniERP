@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
-import { TeamMember } from '../types';
+import { TeamMember, PunchRecord } from '../types';
 import { Clock, Play, Coffee, LogOut, FileText, Timer } from 'lucide-react';
 import { formatDuration } from '../utils/punchDuration';
 
 interface PunchCardProps {
   currentMember: TeamMember;
+  punchesForToday: PunchRecord[];
   todayWorkedMinutes: number;
   isClockedOut: boolean;
   onPunch: (type: 'Punch' | 'BreakStart' | 'BreakEnd' | 'ClockOut', note?: string) => Promise<void>;
   loading: boolean;
 }
 
-export default function PunchCard({ currentMember, todayWorkedMinutes, isClockedOut, onPunch, loading }: PunchCardProps) {
+export default function PunchCard({ currentMember, punchesForToday, todayWorkedMinutes, isClockedOut, onPunch, loading }: PunchCardProps) {
   const [note, setNote] = useState('');
   const status = currentMember.punchStatus || 'Offline';
   const workedMinutes = todayWorkedMinutes;
