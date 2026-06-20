@@ -451,12 +451,6 @@ export default function TeamDashboard({
                           )}
                         </div>
                       </div>
-
-                      {memberLog && memberLog.aiSummarized && (
-                        <div className="text-[10px] bg-slate-50 border border-slate-200/60 p-2 rounded-xl italic text-slate-600">
-                          <strong>Latest Daily Description:</strong> &ldquo;{memberLog.aiSummarized}&rdquo;
-                        </div>
-                      )}
                     </div>
                   );
                 })}

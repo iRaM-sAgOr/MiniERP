@@ -82,7 +82,7 @@ export default function AuthScreen({
           <div className="space-y-4 pt-2">
             {[
               { icon: Clock, title: 'Interactive Shift Punch Controls', desc: 'Log clock-ins, instant breaks, and structured shift details precisely.' },
-              { icon: Mail, title: 'Gemini-AI Professional Summarizer', desc: 'Transcribe daily logs into pristine email summaries for Team Leads immediately.' },
+              { icon: Mail, title: 'Professional Daily Summaries', desc: 'Convert daily logs into clean supervisor update drafts immediately.' },
               { icon: MessageSquare, title: 'Peer-To-Peer Direct Messages', desc: 'Managers can correspond with any engineer, and engineers can message each other directly.' },
             ].map(({ icon: Icon, title, desc }) => (
               <div key={title} className="flex gap-3 items-start">

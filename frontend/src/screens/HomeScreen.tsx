@@ -140,7 +140,7 @@ export default function HomeScreen({
           <h3 className="text-xs font-bold uppercase tracking-wider text-[#7a7d75] font-mono mb-3">Quick Access</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <NavCard icon={Clock} title="Punch In / Out" desc="Manage your shift attendance and break records." onClick={() => goTo()} />
-            <NavCard icon={Briefcase} title="Daily Work Log" desc="Submit your daily task log and generate AI email drafts." onClick={() => goTo()} />
+            <NavCard icon={Briefcase} title="Daily Work Log" desc="Submit your daily task log and prepare supervisor email drafts." onClick={() => goTo()} />
             <NavCard icon={MessageSquare} title="Direct Messages" desc="Peer-to-peer encrypted workspace correspondence." onClick={() => goTo('messages')} badge={unseenCount > 0 ? String(unseenCount > 99 ? '99+' : unseenCount) : undefined} />
             <NavCard icon={Users} title={effectiveRoleType === 'Manager' ? 'Team Roster' : 'Roster & Backlog'} desc={effectiveRoleType === 'Manager' ? 'Audit team schedules, roles and productivity.' : 'View your tasks and activity history.'} onClick={() => goTo('roster')} />
             <NavCard icon={ShieldCheck} title="My Profile" desc="Update your name, avatar, schedule and department." onClick={() => goTo('profile')} />

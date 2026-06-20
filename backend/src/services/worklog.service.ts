@@ -1,7 +1,6 @@
 import { WorkLogRepository } from "../repositories/worklog.repository.js";
 import { MemberRepository } from "../repositories/member.repository.js";
 import { TaskRepository } from "../repositories/task.repository.js";
-import { getGeminiAI } from "../config/gemini.js";
 import { prisma } from "../config/prisma.js";
 
 export class WorkLogService {
@@ -58,61 +57,9 @@ export class WorkLogService {
       tl = { name: "Team Lead", email: "unassigned@minierp.local" };
     }
 
-    const itemsText = items.map((it, idx) => {
-      return `${idx + 1}. [Project: ${it.project}] (${it.category}) ${it.description} - spent ${it.hoursSpent} hours.`;
-    }).join("\n");
-
-    let emailDraft = "";
-    let emailSubject = `Daily Work Report - ${member.name} (${todayStr})`;
-    let aiSummarized = "";
-
-    const ai = getGeminiAI();
-
-    if (ai && items.length > 0) {
-      try {
-        const prompt = `
-You are an advanced remote Team Lead assistant. Below is the raw daily activities log submitted by remote employee ${member.name} (${member.role}):
-
-${itemsText}
-
-Using these raw logs, please generate two things and format them in a tidy JSON block:
-1. "summary": A brief 1-sentence professional summary summarizing what the engineer achieved today. Focus on outcomes.
-2. "emailBody": A polite, incredibly professional, well-structured daily update email directed to their supervisor ${tl.name}. Include a pleasant opening, absolute exact breakdown of the tasks and hours in neat bullet points, and a friendly, respectful sign-off.
-
-Format your response as a strict JSON block, with these exact keys:
-{
-  "summary": "their summary here",
-  "emailBody": "professional email draft body here"
-}
-Ensure there is no extra fluff or markdown outside of the JSON block. Do NOT include json tags, just the raw JSON.
-`;
-
-        const response = await ai.models.generateContent({
-          model: "gemini-3.5-flash",
-          contents: prompt,
-        });
-
-        const responseText = response.text || "{}";
-        const cleanedText = responseText.replace(/```json/gi, "").replace(/```/g, "").trim();
-
-        try {
-          const parsed = JSON.parse(cleanedText);
-          aiSummarized = parsed.summary || "";
-          emailDraft = parsed.emailBody || "";
-        } catch (err) {
-          console.error("JSON formatting error for Gemini reply:", responseText, err);
-          aiSummarized = `Completed engineering entries under projects: ${items.map(i => i.project).join(", ")}.`;
-          emailDraft = `Dear ${tl.name},\n\nHope this finds you well. Here is my daily remote activity log for today:\n\n${items.map(it => `- ${it.project} [${it.category}]: ${it.description} (${it.hoursSpent}h)`).join('\n')}\n\nThank you,\n${member.name}`;
-        }
-      } catch (aiErr) {
-        console.error("Gemini server conversation crashed:", aiErr);
-        aiSummarized = `Drafted updates for: ${items.map(i => i.project).join(", ")}.`;
-        emailDraft = `Hi ${tl.name},\n\nHere is my work summary for today:\n\n${items.map(it => `- ${it.project} (${it.category}): ${it.description} (${it.hoursSpent}h)`).join('\n')}\n\nBest regards,\n${member.name}`;
-      }
-    } else {
-      aiSummarized = `Documented ${items.length} tasks across team logs.`;
-      emailDraft = `Dear ${tl.name},\n\nI have successfully completed my hours today. Raw tasks completed:\n\n${items.map(it => `- ${it.project} - ${it.description} (${it.hoursSpent} hrs)`).join('\n')}\n\nSincerely,\n${member.name}`;
-    }
+    const emailSubject = `Daily Work Report - ${member.name} (${todayStr})`;
+    const aiSummarized = "";
+    const emailDraft = `Dear ${tl.name},\n\nPlease find my daily work update for ${todayStr}:\n\n${items.map(it => `- ${it.project} [${it.category}]: ${it.description} (${it.hoursSpent}h)`).join('\n')}\n\nRegards,\n${member.name}`;
 
     const logId = "wl_" + Math.random().toString(36).substr(2, 9);
     const logData = {

@@ -31,7 +31,6 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://minierp:minierp_password_2025_ai_solution_usa@postgres:5432/minierp?schema=public
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       PORT: 8080
       NODE_ENV: production
       VITE_MIDDLEWARE: "false"

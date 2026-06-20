@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TeamMember, WorkLog } from '../types';
-import { Mail, Sparkles, Send, CheckCircle2, FileEdit } from 'lucide-react';
+import { Mail, Send, CheckCircle2, FileEdit } from 'lucide-react';
 
 interface EmailDraftCardProps {
   worklog: WorkLog | null;
@@ -41,9 +41,9 @@ export default function EmailDraftCard({ worklog, currentMember, members, onSend
         <div className="p-4 bg-[#f4f1e8]/60 border border-[#e2dfd2]/60 rounded-full mb-4">
           <Mail className="w-6 h-6 text-[#7a7d75] opacity-80" />
         </div>
-        <h3 className="font-bold text-[#3d403a] font-serif text-sm">Supervisor AI Updates Portal</h3>
+        <h3 className="font-bold text-[#3d403a] font-serif text-sm">Supervisor Updates Portal</h3>
         <p className="text-xs text-[#7a7d75] max-w-[240px] mt-2 leading-relaxed">
-          Submit today's activity logs first to construct AI daily summaries and supervisor updates.
+          Submit today's activity logs first to prepare your supervisor update draft.
         </p>
       </div>
     );
@@ -68,19 +68,6 @@ export default function EmailDraftCard({ worklog, currentMember, members, onSend
           </span>
         )}
       </div>
-
-      {/* AI Summarized Outline banner */}
-      {worklog.aiSummarized && (
-        <div className="mb-5 p-4 rounded-xl bg-gradient-to-r from-[#5a6e53]/5 to-[#f4f1e8] border border-[#5a6e53]/15">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-[#5a6e53]" />
-            <span className="text-[10px] font-bold text-[#5a6e53] uppercase tracking-wider">AI Studio Bullet Summary</span>
-          </div>
-          <p className="text-xs text-[#3d403a] italic leading-relaxed">
-            "{worklog.aiSummarized}"
-          </p>
-        </div>
-      )}
 
       <div className="mb-4">
         <label className="block text-[10px] font-bold text-[#7a7d75] uppercase tracking-wider mb-1">

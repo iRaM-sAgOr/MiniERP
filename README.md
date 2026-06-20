@@ -8,7 +8,7 @@ AI Solution USA's Enterprise Resource Planning (ERP) is a premium, high-fidelity
 
 *   **Integrated Attendance Timecard**: Clock in, take sudden or scheduled breaks, and track shift sessions with instant database state updates.
 *   **Searchable Task Allocator**: Distribute workload assignments with custom deadlines, detail criteria, and dynamic priority tracking markers.
-*   **Gemini-AI Workspace Summarizer**: High-resolution daily summaries designed to compile developer time metrics and log submissions into custom-formatted email digests for Team Leads and Managers.
+*   **Daily Summary Drafts**: Structured daily summaries generated from submitted work logs and prepared as professional email drafts for Team Leads and Managers.
 *   **Direct Workspace Messages**: Direct communication channel allowing cross-collaboration between developers, managers, and designers.
 *   **Zero-Reset Enterprise Policy**: Clean, authoritative data flow suited for enterprise security boundaries with no unrequested reset bypass mechanisms.
 
@@ -148,7 +148,6 @@ Aggregates daily engineering achievements, github references, and links to tasks
 *   **Frontend**: React 18 with Vite, styled elegantly with **Tailwind CSS**.
 *   **Backend**: Node.js & **Express** running on port 8080.
 *   **State Management**: Real-time server-synced local storage buffers.
-*   **AI Engine**: `@google/genai` (SDK) via Gemini Flask endpoints.
 *   **Icons**: Clean geometric iconography powered by `lucide-react`.
 
 ---
@@ -207,11 +206,7 @@ npm install
 
 ### 2. Configure root env for secrets
 
-Create/update `backend/.env`:
-
-```env
-GEMINI_API_KEY=your_gemini_key
-```
+Create/update `backend/.env` with runtime values (`JWT_SECRET`, `DATABASE_URL`, `CORS_ALLOWED_ORIGINS`).
 
 ### 3. Start backend + PostgreSQL with auto migration
 
@@ -258,7 +253,6 @@ Create `backend/.env.production` (or inject through your platform):
 
 ```env
 DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DB_NAME?schema=public&sslmode=require
-GEMINI_API_KEY=your_gemini_key
 ```
 
 ### 2. Run backend with Docker Compose (cloud DB URL)

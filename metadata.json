@@ -2,5 +2,5 @@
   "name": "AI Solution USA",
   "description": "Enterprise ERP solution for distributed remote engineering teams, featuring timecards, real-time message feeds, work automation, priority task distribution, and Azure-ready deployment models.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }
