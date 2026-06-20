@@ -1,6 +1,31 @@
 import { prisma } from "../config/prisma.js";
 
 export class TaskRepository {
+  static async findPaginated(options: {
+    where?: any;
+    skip: number;
+    take: number;
+    orderBy?: any;
+  }) {
+    const { where, skip, take, orderBy } = options;
+    const [items, total] = await Promise.all([
+      prisma.task.findMany({
+        where,
+        skip,
+        take,
+        orderBy: orderBy || { createdAt: "desc" },
+        include: {
+          comments: true,
+          history: true,
+          subtasks: true,
+        },
+      }),
+      prisma.task.count({ where }),
+    ]);
+
+    return { items, total };
+  }
+
   static async findAll() {
     return prisma.task.findMany({
       include: {

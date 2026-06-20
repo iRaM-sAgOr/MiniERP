@@ -4,6 +4,7 @@ import {
   appendWorklogItem,
   deleteWorklogItem,
   getEngineerState,
+  getTasks,
   punch,
   sendEmail,
   sendMessage,
@@ -26,6 +27,7 @@ router.get("/projects", getProjects);
 router.get("/worklogs", getWorkLogs);
 router.get("/messages", getMessages);
 router.get("/attendance", getAttendance);
+router.get("/tasks", getTasks);
 router.post("/punch", punch);
 router.post("/worklog/append-item", appendWorklogItem);
 router.post("/worklog/delete-item", deleteWorklogItem);

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, SetStateAction } from 'react';
 import { createApiFetch } from '../api/apiFetch';
-import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage, EnterpriseProject, AttendanceData, DayAttendanceRow } from '../types';
+import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage, EnterpriseProject, AttendanceData, DayAttendanceRow, TaskListQuery, TaskListResult } from '../types';
 import { upsertMessage } from './useChatSocket';
 
 export type ActiveTab = 'roster' | 'allocator' | 'messages' | 'sentLogs' | 'profile';
@@ -94,6 +94,7 @@ export interface ErpState {
   handleLogout: () => void;
   refetchAll: () => void;
   fetchMessages: () => Promise<void>;
+  fetchTaskList: (query?: TaskListQuery) => Promise<TaskListResult>;
   fetchAttendance: () => Promise<void>;
   fetchAttendanceForMonth: (memberId: string, year: number, month: number) => Promise<DayAttendanceRow[]>;
 }
@@ -203,6 +204,40 @@ export function useErpState(): ErpState {
     } catch (err) {
       console.error('Failed to query message list:', err);
     }
+  }, [authToken, apiFetch]);
+
+  const fetchTaskList = useCallback(async (query: TaskListQuery = {}): Promise<TaskListResult> => {
+    if (!authToken) {
+      return {
+        tasks: [],
+        pagination: { page: 1, pageSize: 10, total: 0, totalPages: 1 },
+      };
+    }
+
+    const params = new URLSearchParams();
+    params.set('page', String(query.page ?? 1));
+    params.set('pageSize', String(query.pageSize ?? 10));
+    if (query.search) params.set('search', query.search);
+    if (query.priority) params.set('priority', query.priority);
+    if (query.status) params.set('status', query.status);
+    if (query.assignedTo) params.set('assignedTo', query.assignedTo);
+    if (typeof query.includeCompleted === 'boolean') {
+      params.set('includeCompleted', String(query.includeCompleted));
+    }
+
+    try {
+      const res = await apiFetch(`/api/erp/tasks?${params.toString()}`);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (err) {
+      console.error('Failed to fetch task list:', err);
+    }
+
+    return {
+      tasks: [],
+      pagination: { page: query.page ?? 1, pageSize: query.pageSize ?? 10, total: 0, totalPages: 1 },
+    };
   }, [authToken, apiFetch]);
 
   const fetchProjects = useCallback(async () => {
@@ -754,6 +789,7 @@ export function useErpState(): ErpState {
   handleForgotPassword, handleResetPassword,
   handleManagerGeneratePasswordReset, handleSendMessage,
   handleLogout, refetchAll, fetchMessages,
+  fetchTaskList,
   fetchAttendance, fetchAttendanceForMonth,
 };
 }

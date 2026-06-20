@@ -175,6 +175,7 @@ export default function App() {
       handleSendMessage={erp.handleSendMessage}
       handleLogout={erp.handleLogout}
       refetchAll={erp.refetchAll}
+      onFetchTasks={erp.fetchTaskList}
       onFetchAttendanceMonth={erp.fetchAttendanceForMonth}
     />
   );

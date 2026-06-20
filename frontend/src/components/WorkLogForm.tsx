@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Plus, Trash2, Sparkles, FolderKanban } from "lucide-react";
-import { TeamMember, LogItem, WorkLog, TaskDistribution, EnterpriseProject } from "../types";
+import { TeamMember, LogItem, WorkLog, TaskDistribution, EnterpriseProject, TaskListQuery, TaskListResult } from "../types";
 
 interface WorkLogFormProps {
   currentMember: TeamMember;
@@ -8,8 +8,8 @@ interface WorkLogFormProps {
   savedWorkLog: WorkLog | null;
   onAppendItem: (item: LogItem, tlId: string) => Promise<void>;
   onDeleteWorklogItem: (worklogId: string, itemId: string) => Promise<void>;
+  onSearchTasks: (query?: TaskListQuery) => Promise<TaskListResult>;
   loading: boolean;
-  tasks?: TaskDistribution[];
   projects?: EnterpriseProject[];
 }
 
@@ -21,8 +21,8 @@ export default function WorkLogForm({
   savedWorkLog,
   onAppendItem,
   onDeleteWorklogItem,
+  onSearchTasks,
   loading,
-  tasks = [],
   projects = [],
 }: WorkLogFormProps) {
   const items = savedWorkLog?.items || [];
@@ -33,17 +33,41 @@ export default function WorkLogForm({
   const [hoursSpent, setHoursSpent] = useState<number>(1);
   const [githubLink, setGithubLink] = useState("");
   const [associatedTaskId, setAssociatedTaskId] = useState("");
+  const [taskSearch, setTaskSearch] = useState("");
+  const [showTaskResults, setShowTaskResults] = useState(false);
+  const [taskSearchResults, setTaskSearchResults] = useState<TaskDistribution[]>([]);
+  const [taskSearchLoading, setTaskSearchLoading] = useState(false);
   const [selectedTLId, setSelectedTLId] = useState(() => {
     const reportLead = teamLeads.find((l) => l.id === currentMember.tlId);
     return reportLead ? reportLead.id : teamLeads[0]?.id || "";
   });
 
-  const myTasks = tasks.filter(
-    (t) => t.assignedTo === currentMember.id && t.status !== "Completed"
-  );
+  useEffect(() => {
+    if (!showTaskResults) return;
+    const timeoutId = setTimeout(async () => {
+      setTaskSearchLoading(true);
+      try {
+        const result = await onSearchTasks({
+          page: 1,
+          pageSize: 10,
+          search: taskSearch,
+          includeCompleted: false,
+        });
+        setTaskSearchResults(result.tasks || []);
+      } finally {
+        setTaskSearchLoading(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timeoutId);
+  }, [taskSearch, showTaskResults, onSearchTasks]);
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!project || !description || hoursSpent <= 0 || !associatedTaskId) {
+      return;
+    }
+
     const newItem: LogItem = {
       project,
       category,
@@ -57,11 +81,14 @@ export default function WorkLogForm({
     setDescription("");
     setHoursSpent(1);
     setGithubLink("");
+    setTaskSearch("");
     setAssociatedTaskId("");
+    setShowTaskResults(false);
   };
 
   const handleRemoveItem = async (index: number) => {
     const item = items[index];
+    if (!savedWorkLog?.id || !item?.id) return;
     await onDeleteWorklogItem(savedWorkLog.id, item.id);
   };
 
@@ -124,7 +151,7 @@ export default function WorkLogForm({
                       </span>
                       {it.taskId && (
                         <span className="text-[9px] bg-emerald-50 text-[#5a6e53] font-bold font-mono px-1.5 py-0.5 rounded border border-emerald-100 uppercase">
-                          🔗 Linked Task
+                          🔗 Task ID: {it.taskId}
                         </span>
                       )}
                       {it.githubLink && (
@@ -170,35 +197,51 @@ export default function WorkLogForm({
           {/* Task association — always visible */}
           <div className="bg-[#5a6e53]/5 border border-[#5a6e53]/15 p-2 rounded-xl">
             <label className="text-[10px] font-bold text-[#5a6e53] uppercase block mb-1">
-              Associate with Assigned Task (Optional)
+              Associate with Assigned Task (Required)
             </label>
-            <select
-              className="w-full text-xs bg-[#fdfcf8] border border-[#e2dfd2] focus:border-[#5a6e53] rounded-xl px-2 py-1 focus:outline-none font-sans text-[#3d403a]"
-              value={associatedTaskId}
+            <input
+              type="text"
+              placeholder="Search by task ID, title, or project"
+              className="w-full text-xs bg-[#fdfcf8] border border-[#e2dfd2] focus:border-[#5a6e53] rounded-xl px-2 py-1.5 focus:outline-none font-sans text-[#3d403a]"
+              value={taskSearch}
+              onFocus={() => setShowTaskResults(true)}
               onChange={(e) => {
-                const val = e.target.value;
-                setAssociatedTaskId(val);
-                if (val) {
-                  const matched = myTasks.find((t) => t.id === val);
-                  if (matched) {
-                    if (matched.projectName) setProject(matched.projectName);
-                  }
-                }
+                setTaskSearch(e.target.value);
+                setAssociatedTaskId("");
+                setShowTaskResults(true);
               }}
-            >
-              <option value="">-- Standalone Entry (No Task Link) --</option>
-              {myTasks.length === 0 ? (
-                <option disabled value="">
-                  No active tasks assigned to you
-                </option>
-              ) : (
-                myTasks.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    [{t.projectName || "General"}] {t.title}
-                  </option>
-                ))
-              )}
-            </select>
+            />
+            {showTaskResults && (
+              <div className="mt-1 max-h-36 overflow-y-auto rounded-xl border border-[#e2dfd2] bg-white">
+                {taskSearchLoading ? (
+                  <div className="px-2.5 py-2 text-[11px] text-[#7a7d75]">Loading tasks...</div>
+                ) : taskSearchResults.length === 0 ? (
+                  <div className="px-2.5 py-2 text-[11px] text-[#7a7d75]">No matching assigned task found.</div>
+                ) : (
+                  taskSearchResults.map((task) => (
+                    <button
+                      key={task.id}
+                      type="button"
+                      className="w-full text-left px-2.5 py-2 border-b border-[#f1efe6] last:border-b-0 hover:bg-[#f4f1e8]/40"
+                      onClick={() => {
+                        setAssociatedTaskId(task.id);
+                        setTaskSearch(`${task.id} - ${task.title}`);
+                        setShowTaskResults(false);
+                        if (task.projectName) {
+                          setProject(task.projectName);
+                        }
+                      }}
+                    >
+                      <div className="text-[11px] font-mono text-[#5a6e53] font-bold">{task.id}</div>
+                      <div className="text-[11px] text-[#3d403a]">{task.title}</div>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+            <p className="mt-1 text-[10px] font-mono text-[#7a7d75]">
+              Selected Task ID: {associatedTaskId || "none"}
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
@@ -303,6 +346,7 @@ export default function WorkLogForm({
 
           <button
             type="submit"
+              disabled={loading || !associatedTaskId}
             className="w-full flex items-center justify-center gap-1.5 border border-[#e2dfd2] hover:bg-[#f4f1e8] bg-white rounded-xl py-2.5 px-3 text-[#3d403a] text-[11px] font-bold transition-colors cursor-pointer disabled:opacity-50"
           >
             {loading ? (

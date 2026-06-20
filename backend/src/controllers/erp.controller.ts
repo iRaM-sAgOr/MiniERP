@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { getRequestUserId } from "../middleware/auth.middleware.js";
 import { ErpService } from "../services/erp.service.js";
 import { MemberService } from "../services/member.service.js";
+import { TaskService } from "../services/task.service.js";
 import { WorkLogService } from "../services/worklog.service.js";
 
 export const getManagerState = async (req: Request, res: Response) => {
@@ -88,6 +89,29 @@ export const createTask = async (req: Request, res: Response) => {
   try {
     const state = await ErpService.createTask(req.body, getRequestUserId(req));
     res.json({ state });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+export const getTasks = async (req: Request, res: Response) => {
+  try {
+    const requesterId = getRequestUserId(req);
+    if (!requesterId) {
+      return res.status(401).json({ error: "JWT token is required." });
+    }
+
+    const result = await TaskService.getTaskList(requesterId, {
+      page: Number(req.query.page || 1),
+      pageSize: Number(req.query.pageSize || 10),
+      search: typeof req.query.search === "string" ? req.query.search : undefined,
+      priority: typeof req.query.priority === "string" ? (req.query.priority as any) : undefined,
+      status: typeof req.query.status === "string" ? (req.query.status as any) : undefined,
+      assignedTo: typeof req.query.assignedTo === "string" ? req.query.assignedTo : undefined,
+      includeCompleted: req.query.includeCompleted === "true",
+    });
+
+    res.json(result);
   } catch (err: any) {
     res.status(400).json({ error: err.message });
   }

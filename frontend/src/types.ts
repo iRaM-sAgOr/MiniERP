@@ -110,6 +110,26 @@ export interface TaskDistribution {
   subtasks?: TaskSubtask[];
 }
 
+export interface TaskListQuery {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  priority?: 'High' | 'Medium' | 'Low';
+  status?: 'Pending' | 'In Progress' | 'Completed';
+  assignedTo?: string;
+  includeCompleted?: boolean;
+}
+
+export interface TaskListResult {
+  tasks: TaskDistribution[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 // ─── Attendance (computed by backend) ────────────────────────────────────────
 
 export interface DayAttendanceRow {

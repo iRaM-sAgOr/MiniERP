@@ -17,7 +17,7 @@ import {
   ArrowDownCircle,
   Minus
 } from 'lucide-react';
-import { TeamMember, TaskDistribution, WorkLog, AttendanceData, DayAttendanceRow } from '../types';
+import { TeamMember, TaskDistribution, WorkLog, AttendanceData, DayAttendanceRow, TaskListQuery, TaskListResult } from '../types';
 import TaskDetailsDialog from './TaskDetailsDialog';
 import AttendanceLog from './AttendanceLog';
 import { formatDuration } from '../utils/punchDuration';
@@ -34,6 +34,7 @@ interface TeamDashboardProps {
   onUpdateSubtasks: (taskId: string, subtasks: any[]) => Promise<void>;
   onUpdateTaskDetails: (taskId: string, updates: any) => Promise<void>;
   loading: boolean;
+  onFetchTasks: (query?: TaskListQuery) => Promise<TaskListResult>;
   onUpdateUserRole?: (userId: string, roleType: 'Engineer' | 'Manager') => Promise<void>;
   onGeneratePasswordResetToken?: (memberId: string) => Promise<{ member: { id: string; name: string; email: string }; resetToken: string; expiresAt: string }>;
 }
@@ -50,12 +51,18 @@ export default function TeamDashboard({
   onUpdateSubtasks,
   onUpdateTaskDetails,
   loading,
+  onFetchTasks,
   onUpdateUserRole,
   onGeneratePasswordResetToken
 }: TeamDashboardProps) {
   const [roleChangingId, setRoleChangingId] = useState<string | null>(null);
   const [taskSearch, setTaskSearch] = useState('');
   const [taskPriorityFilter, setTaskPriorityFilter] = useState<'All' | 'High' | 'Medium' | 'Low'>('All');
+  const [taskPage, setTaskPage] = useState(1);
+  const [taskRows, setTaskRows] = useState<TaskDistribution[]>([]);
+  const [taskTotal, setTaskTotal] = useState(0);
+  const [taskTotalPages, setTaskTotalPages] = useState(1);
+  const [taskListLoading, setTaskListLoading] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [resetTargetMemberId, setResetTargetMemberId] = useState('');
   const [generatedResetPreview, setGeneratedResetPreview] = useState<{ memberName: string; token: string; expiresAt: string } | null>(null);
@@ -63,6 +70,39 @@ export default function TeamDashboard({
 
   const isManager = currentMember.roleType === 'Manager';
   const pageSize = 5;
+
+  useEffect(() => {
+    setTaskPage(1);
+  }, [taskSearch, taskPriorityFilter, currentMember.id, isManager]);
+
+  useEffect(() => {
+    let isCancelled = false;
+    const timeoutId = setTimeout(async () => {
+      setTaskListLoading(true);
+      const result = await onFetchTasks({
+        page: taskPage,
+        pageSize,
+        search: taskSearch.trim() || undefined,
+        priority: taskPriorityFilter === 'All' ? undefined : taskPriorityFilter,
+        assignedTo: isManager ? undefined : currentMember.id,
+        includeCompleted: false,
+      });
+
+      if (!isCancelled) {
+        setTaskRows(result.tasks || []);
+        setTaskTotal(result.pagination?.total ?? 0);
+        setTaskTotalPages(Math.max(1, result.pagination?.totalPages ?? 1));
+      }
+      if (!isCancelled) {
+        setTaskListLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [onFetchTasks, taskPage, pageSize, taskSearch, taskPriorityFilter, isManager, currentMember.id]);
 
   // Days of the week representing break times
   const todayDayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
@@ -474,7 +514,7 @@ export default function TeamDashboard({
               </div>
             </div>
             <span className="text-[11px] font-bold text-[#5a6e53] font-mono bg-[#f4f1e8] px-2.5 py-0.5 rounded-full border border-[#e2dfd2]/50">
-              {tasks.length} Active System-wide
+              {taskTotal} Active System-wide
             </span>
           </div>
 
@@ -513,15 +553,9 @@ export default function TeamDashboard({
           </div>
 
           {(() => {
-            const userFilterTasks = tasks.filter(t => !isManager ? t.assignedTo === currentMember.id : true);
-            const queriedTasks = userFilterTasks.filter(t => {
-              const matchesQuery = t.title.toLowerCase().includes(taskSearch.toLowerCase()) ||
-                t.description.toLowerCase().includes(taskSearch.toLowerCase());
-              const matchesPrio = taskPriorityFilter === 'All' || t.priority === taskPriorityFilter;
-              return matchesQuery && matchesPrio;
-            });
+            const queriedTasks = taskRows;
 
-            if (userFilterTasks.length === 0) {
+            if (!taskListLoading && taskTotal === 0) {
               return (
                 <div className="text-center py-24 border border-dashed border-[#e2dfd2] rounded-2xl bg-[#f4f1e8]/10">
                   <p className="text-[#7a7d75] text-xs">No tasks inside your database backlog.</p>
@@ -529,7 +563,7 @@ export default function TeamDashboard({
               );
             }
 
-            if (queriedTasks.length === 0) {
+            if (!taskListLoading && queriedTasks.length === 0) {
               return (
                 <div className="text-center py-16 border border-dashed border-[#e2dfd2] rounded-2xl bg-[#f4f1e8]/10">
                   <p className="text-[#7a7d75] text-xs font-semibold">No tasks match your search criteria.</p>
@@ -564,6 +598,9 @@ export default function TeamDashboard({
                             📂 {task.projectName}
                           </span>
                         )}
+                        <span className="text-[9px] bg-slate-50 text-slate-700 font-bold font-mono px-2 py-0.5 rounded border border-slate-200 uppercase tracking-wider">
+                          ID: {task.id}
+                        </span>
                         {task.priority === 'High' && (
                           <ArrowUpCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                         )}
@@ -687,6 +724,11 @@ export default function TeamDashboard({
 
             return (
               <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
+                {taskListLoading && (
+                  <div className="text-[11px] text-[#7a7d75] border border-dashed border-[#e2dfd2] rounded-xl px-3 py-2 bg-[#f4f1e8]/20">
+                    Loading tasks...
+                  </div>
+                )}
                 {isManager ? (
                   queriedTasks.map(renderTaskCard)
                 ) : (
@@ -716,6 +758,30 @@ export default function TeamDashboard({
                     </div>
                   </>
                 )}
+
+                <div className="flex items-center justify-between border border-[#e2dfd2] rounded-xl px-3 py-2 bg-[#f4f1e8]/20">
+                  <span className="text-[10px] text-[#7a7d75] font-mono font-bold">
+                    Page {taskPage} of {taskTotalPages}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTaskPage((page) => Math.max(1, page - 1))}
+                      disabled={taskPage <= 1 || taskListLoading}
+                      className="text-[10px] border border-[#e2dfd2] bg-white hover:bg-[#f4f1e8] px-2 py-0.5 text-[#3d403a] rounded font-semibold transition-colors cursor-pointer disabled:opacity-40"
+                    >
+                      Prev
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTaskPage((page) => Math.min(taskTotalPages, page + 1))}
+                      disabled={taskPage >= taskTotalPages || taskListLoading}
+                      className="text-[10px] border border-[#e2dfd2] bg-white hover:bg-[#f4f1e8] px-2 py-0.5 text-[#3d403a] rounded font-semibold transition-colors cursor-pointer disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
               </div>
             );
           })()}
@@ -724,7 +790,7 @@ export default function TeamDashboard({
 
       {/* Expanded task details modal overlay */}
       {selectedTaskId && (() => {
-        const selectedTask = tasks.find(t => t.id === selectedTaskId);
+        const selectedTask = taskRows.find(t => t.id === selectedTaskId) || tasks.find(t => t.id === selectedTaskId);
         if (!selectedTask) return null;
         return (
           <TaskDetailsDialog

@@ -11,7 +11,7 @@ import ProfileManagement from '../components/ProfileManagement';
 import MessagesPanel from '../components/MessagesPanel';
 import SentEmailsPanel from '../components/SentEmailsPanel';
 import RegistrationFormCard from '../components/RegistrationFormCard';
-import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage, EnterpriseProject, AttendanceData, DayAttendanceRow } from '../types';
+import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage, EnterpriseProject, AttendanceData, DayAttendanceRow, TaskListQuery, TaskListResult } from '../types';
 import { ActiveTab, Screen } from '../hooks/useErpState';
 // @ts-ignore
 import aiLogo from '../assets/images/ai_solution_usa_logo_1780158886266.png';
@@ -88,6 +88,7 @@ interface DashboardScreenProps {
   handleSendMessage: (receiverId: string, text: string, socketRef: React.MutableRefObject<any>) => Promise<void>;
   handleLogout: () => void;
   refetchAll: () => void;
+  onFetchTasks: (query?: TaskListQuery) => Promise<TaskListResult>;
   onFetchAttendanceMonth: (memberId: string, year: number, month: number) => Promise<DayAttendanceRow[]>;
 }
 
@@ -108,7 +109,7 @@ export default function DashboardScreen(props: DashboardScreenProps) {
     handleUpdateTaskStatus, handleAddTaskComment, handleUpdateTaskSubtasks,
     handleUpdateTaskDetails, handleRegisterUser, handleUpdateUserRole,
     handleUpdateProfile, handleManagerGeneratePasswordReset,
-    handleSendMessage, handleLogout, refetchAll, onFetchAttendanceMonth,
+    handleSendMessage, handleLogout, refetchAll, onFetchTasks, onFetchAttendanceMonth,
   } = props;
 
   const [showRegForm, setShowRegForm] = useState(false);
@@ -265,7 +266,7 @@ export default function DashboardScreen(props: DashboardScreenProps) {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <PunchCard currentMember={effectiveMember} punchesForToday={punchesForToday} todayWorkedMinutes={attendance?.self.todayWorkedMinutes ?? 0} isClockedOut={attendance?.self.isClockedOut ?? false} onPunch={handlePunch} loading={punchLoading} />
-                  <WorkLogForm currentMember={effectiveMember} teamLeads={teamLeads} savedWorkLog={activeWorklog} onAppendItem={handleAppendWorklogItem} onDeleteWorklogItem={handleDeleteWorklogItem} loading={logLoading} tasks={tasks} projects={projects} />
+                  <WorkLogForm currentMember={effectiveMember} teamLeads={teamLeads} savedWorkLog={activeWorklog} onAppendItem={handleAppendWorklogItem} onDeleteWorklogItem={handleDeleteWorklogItem} onSearchTasks={onFetchTasks} loading={logLoading} projects={projects} />
                 </div>
               </div>
 
@@ -323,6 +324,7 @@ export default function DashboardScreen(props: DashboardScreenProps) {
                   loading={taskLoading}
                   onUpdateUserRole={handleUpdateUserRole}
                   onGeneratePasswordResetToken={handleManagerGeneratePasswordReset}
+                  onFetchTasks={onFetchTasks}
                 />
               )}
 

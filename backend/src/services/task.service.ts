@@ -1,6 +1,74 @@
 import { TaskRepository } from "../repositories/task.repository.js";
+import { MemberRepository } from "../repositories/member.repository.js";
 
 export class TaskService {
+  static async getTaskList(
+    requesterId: string,
+    query: {
+      page?: number;
+      pageSize?: number;
+      search?: string;
+      priority?: "High" | "Medium" | "Low";
+      status?: "Pending" | "In Progress" | "Completed";
+      assignedTo?: string;
+      includeCompleted?: boolean;
+    }
+  ) {
+    const requester = await MemberRepository.findById(requesterId);
+    if (!requester) {
+      throw new Error("Requester profile not found.");
+    }
+
+    const isManager = (requester.roleType || "").toLowerCase() === "manager";
+    const page = Math.max(1, Number(query.page || 1));
+    const pageSize = Math.min(50, Math.max(1, Number(query.pageSize || 10)));
+    const skip = (page - 1) * pageSize;
+
+    const where: any = {};
+    if (!isManager) {
+      where.assignedTo = requesterId;
+    } else if (query.assignedTo) {
+      where.assignedTo = query.assignedTo;
+    }
+
+    if (query.priority) {
+      where.priority = query.priority;
+    }
+
+    if (query.status) {
+      where.status = query.status;
+    } else if (!query.includeCompleted) {
+      where.status = { not: "Completed" };
+    }
+
+    if (query.search && query.search.trim()) {
+      const term = query.search.trim();
+      where.OR = [
+        { id: { contains: term } },
+        { title: { contains: term } },
+        { description: { contains: term } },
+        { projectName: { contains: term } },
+      ];
+    }
+
+    const { items, total } = await TaskRepository.findPaginated({
+      where,
+      skip,
+      take: pageSize,
+      orderBy: { createdAt: "desc" },
+    });
+
+    return {
+      tasks: items,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      },
+    };
+  }
+
   static async getAllTasks() {
     return TaskRepository.findAll();
   }
