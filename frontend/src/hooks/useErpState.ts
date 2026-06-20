@@ -1,7 +1,20 @@
-import { useState, useEffect, useCallback, SetStateAction } from 'react';
+import { useState, useEffect, useCallback, useMemo, SetStateAction } from 'react';
 import { createApiFetch } from '../api/apiFetch';
 import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage, EnterpriseProject, AttendanceData, DayAttendanceRow } from '../types';
 import { upsertMessage } from './useChatSocket';
+
+const RUNTIME_WORKLOGS_KEY = 'syncspace_runtime_worklogs';
+
+function readRuntimeWorklogs(): WorkLog[] {
+  try {
+    const raw = localStorage.getItem(RUNTIME_WORKLOGS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 export type ActiveTab = 'roster' | 'allocator' | 'messages' | 'sentLogs' | 'profile';
 export type Screen = 'auth' | 'home' | 'dashboard';
@@ -63,7 +76,7 @@ export interface ErpState {
   handleProfileSwitch: (id: string) => void;
   handlePunch: (type: 'Punch' | 'BreakStart' | 'BreakEnd' | 'ClockOut', note?: string) => Promise<void>;
   handleLogSubmit: (items: LogItem[], tlId: string) => Promise<void>;
-  handleSendEmail: (worklogId: string, subject: string, body: string, recipientId: string) => Promise<void>;
+  handleSendEmail: (worklogId: string | undefined, subject: string, body: string, recipientId: string) => Promise<void>;
   handleAssignTask: (taskData: {
     title: string; description: string; assignedTo: string;
     priority: 'Low' | 'Medium' | 'High'; dueDate: string;
@@ -100,7 +113,8 @@ export interface ErpState {
 export function useErpState(): ErpState {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [punches, setPunches] = useState<PunchRecord[]>([]);
-  const [worklogs, setWorklogs] = useState<WorkLog[]>([]);
+  const [serverWorklogs, setServerWorklogs] = useState<WorkLog[]>([]);
+  const [runtimeWorklogs, setRuntimeWorklogs] = useState<WorkLog[]>(() => readRuntimeWorklogs());
   const [tasks, setTasks] = useState<TaskDistribution[]>([]);
   const [sentEmailsLog, setSentEmailsLog] = useState<any[]>([]);
   const [messages, setMessages] = useState<DirectMessage[]>([]);
@@ -184,7 +198,7 @@ export function useErpState(): ErpState {
       const res = await apiFetch('/api/erp/worklogs');
       if (res.ok) {
         const data = await res.json();
-        setWorklogs(data.worklogs || []);
+        setServerWorklogs(data.worklogs || []);
       }
     } catch (err) {
       console.error('Failed to query worklog list:', err);
@@ -293,26 +307,36 @@ export function useErpState(): ErpState {
     const tlData = selectedTL ? { name: selectedTL.name, email: selectedTL.email } : undefined;
     try {
       setLogLoading(true);
-      const res = await apiFetch('/api/erp/worklog', {
-        method: 'POST',
-        body: JSON.stringify({ userId: currentMemberId, items, assignedTL: tlData }),
+      const todayStr = new Date().toISOString().split('T')[0];
+      const leadName = tlData?.name || selectedTL?.name || 'Team Lead';
+      const memberName = members.find(member => member.id === currentMemberId)?.name || 'Team Member';
+      const runtimeWorklog: WorkLog = {
+        id: `runtime_wl_${Math.random().toString(36).slice(2, 10)}`,
+        userId: currentMemberId,
+        date: todayStr,
+        items: items.map(item => ({ ...item })),
+        emailDraft: `Dear ${leadName},\n\nPlease find my daily work update for ${todayStr}:\n\n${items.map(it => `- ${it.project} [${it.category}]: ${it.description} (${it.hoursSpent}h)`).join('\n')}\n\nRegards,\n${memberName}`,
+        emailSubject: `Daily Work Report - ${memberName} (${todayStr})`,
+        aiSummarized: '',
+        sentToTl: false,
+        assignedTL: tlData || { name: leadName, email: selectedTL?.email || 'unassigned@minierp.local' },
+        submittedAt: new Date().toISOString(),
+      };
+
+      setRuntimeWorklogs(prev => {
+        const next = [runtimeWorklog, ...prev.filter(worklog => !(worklog.userId === runtimeWorklog.userId && worklog.date === runtimeWorklog.date))];
+        localStorage.setItem(RUNTIME_WORKLOGS_KEY, JSON.stringify(next));
+        return next;
       });
-      if (res.ok) {
-        const data = await res.json();
-        setMembers(data.state.members);
-        await fetchWorklogs();
-        triggerAlert('success', 'Daily logs submitted! Professional TL Email draft ready in portal.');
-      } else {
-        triggerAlert('error', 'Server error logging metrics.');
-      }
+      triggerAlert('success', 'Daily logs finalized in runtime. Supervisor draft is ready in the portal.');
     } catch {
-      triggerAlert('error', 'Network failure uploading task sheets.');
+      triggerAlert('error', 'Failed to finalize daily logs in runtime.');
     } finally {
       setLogLoading(false);
     }
-  }, [apiFetch, currentMemberId, members, fetchWorklogs, triggerAlert]);
+  }, [currentMemberId, members, triggerAlert]);
 
-  const handleSendEmail = useCallback(async (worklogId: string, subject: string, body: string, recipientId: string) => {
+  const handleSendEmail = useCallback(async (worklogId: string | undefined, subject: string, body: string, recipientId: string) => {
     try {
       setEmailLoading(true);
       const res = await apiFetch('/api/erp/send-email', {
@@ -321,8 +345,21 @@ export function useErpState(): ErpState {
       });
       if (res.ok) {
         const data = await res.json();
-        await fetchWorklogs();
         setSentEmailsLog(data.state.sentEmailsLog);
+        if (worklogId) {
+          await fetchWorklogs();
+        } else {
+          const todayStr = new Date().toISOString().split('T')[0];
+          setRuntimeWorklogs(prev => {
+            const next = prev.map(worklog => (
+              worklog.userId === currentMemberId && worklog.date === todayStr
+                ? { ...worklog, sentToTl: true, emailSubject: subject, emailDraft: body }
+                : worklog
+            ));
+            localStorage.setItem(RUNTIME_WORKLOGS_KEY, JSON.stringify(next));
+            return next;
+          });
+        }
         triggerAlert('success', 'Mail sent successfully. Logging dispatch item.');
       } else {
         triggerAlert('error', 'Simulation dispatch failure on server.');
@@ -332,7 +369,7 @@ export function useErpState(): ErpState {
     } finally {
       setEmailLoading(false);
     }
-  }, [apiFetch, fetchWorklogs, triggerAlert]);
+  }, [apiFetch, currentMemberId, fetchWorklogs, triggerAlert]);
 
   const handleAssignTask = useCallback(async (taskData: {
     title: string; description: string; assignedTo: string;
@@ -678,6 +715,8 @@ export function useErpState(): ErpState {
     setAuthToken('');
     setAuthRoleType('');
     setAuthMemberId('');
+    setRuntimeWorklogs([]);
+    localStorage.removeItem(RUNTIME_WORKLOGS_KEY);
     setManagerViewModeState('manager');
     setCurrentScreen('home');
     localStorage.removeItem('syncspace_current_member_id');
@@ -692,6 +731,13 @@ export function useErpState(): ErpState {
   const todayStr = new Date().toISOString().split('T')[0];
   const currentMember = members.find(m => m.id === currentMemberId);
   const teamLeads = members.filter(m => m.isTL);
+  const worklogs = useMemo(() => {
+    const runtimeKeys = new Set(runtimeWorklogs.map(worklog => `${worklog.userId}::${worklog.date}`));
+    return [
+      ...runtimeWorklogs,
+      ...serverWorklogs.filter(worklog => !runtimeKeys.has(`${worklog.userId}::${worklog.date}`)),
+    ];
+  }, [runtimeWorklogs, serverWorklogs]);
   const punchesForToday = currentMember
     ? punches.filter(p => p.userId === currentMemberId && p.date === todayStr)
     : [];

@@ -262,14 +262,14 @@ export class ErpService {
     return buildStateForRequester(requesterId || actorId);
   }
 
-  static async sendEmail(worklogId: string, customSubject: string, customBody: string, recipientId: string | undefined, requesterId?: string | null) {
-    const worklog = await ErpRepository.findWorkLogById(worklogId);
-    if (!worklog) {
+  static async sendEmail(worklogId: string | undefined, customSubject: string, customBody: string, recipientId: string | undefined, requesterId?: string | null) {
+    const worklog = worklogId ? await ErpRepository.findWorkLogById(worklogId) : null;
+    if (worklogId && !worklog) {
       throw new Error("Work log not found.");
     }
 
-    const dispatchSubject = (customSubject || worklog.emailSubject || `Daily Work Report - ${worklog.date}`).trim();
-    const dispatchBody = (customBody || worklog.emailDraft || "").trim();
+    const dispatchSubject = (customSubject || worklog?.emailSubject || `Daily Work Report${worklog ? ` - ${worklog.date}` : ""}`).trim();
+    const dispatchBody = (customBody || worklog?.emailDraft || "").trim();
     const isAllRecipients = recipientId === "ALL";
     const selectedRecipient = !isAllRecipients && recipientId ? await ErpRepository.findMemberById(recipientId) : null;
 
@@ -280,10 +280,12 @@ export class ErpService {
     const receiverName = isAllRecipients ? "All Members" : (selectedRecipient?.name || "Selected User");
     const receiverEmail = isAllRecipients ? "all@minierp.local" : (selectedRecipient?.email || "selected.user@minierp.local");
 
-    await ErpRepository.updateWorkLogDispatch(worklogId, dispatchSubject, dispatchBody);
+    if (worklog) {
+      await ErpRepository.updateWorkLogDispatch(worklog.id, dispatchSubject, dispatchBody);
+    }
     await ErpRepository.createSentEmailLog({
       id: "email_" + Math.random().toString(36).substr(2, 9),
-      senderId: worklog.userId,
+      senderId: worklog?.userId || requesterId || "system",
       subject: dispatchSubject,
       receiverName,
       receiverEmail,
@@ -291,7 +293,7 @@ export class ErpService {
       timestamp: new Date().toISOString(),
     });
 
-    return buildStateForRequester(requesterId || worklog.userId);
+    return buildStateForRequester(requesterId || worklog?.userId || null);
   }
 
   static async createTask(taskData: any, requesterId?: string | null) {

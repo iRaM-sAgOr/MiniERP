@@ -72,7 +72,7 @@ interface DashboardScreenProps {
   handleProfileSwitch: (id: string) => void;
   handlePunch: (type: 'Punch' | 'BreakStart' | 'BreakEnd' | 'ClockOut', note?: string) => Promise<void>;
   handleLogSubmit: (items: LogItem[], tlId: string) => Promise<void>;
-  handleSendEmail: (worklogId: string, subject: string, body: string, recipientId: string) => Promise<void>;
+  handleSendEmail: (worklogId: string | undefined, subject: string, body: string, recipientId: string) => Promise<void>;
   handleAssignTask: (taskData: any) => Promise<void>;
   handleCreateProject: (name: string, description: string) => Promise<void>;
   handleDeleteProject: (id: string) => Promise<void>;
