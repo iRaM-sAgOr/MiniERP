@@ -251,15 +251,9 @@ export class ErpService {
     return buildStateForRequester(requesterId || actorId);
   }
 
-  static async worklog(
-    userId: string,
-    items: Array<{ project: string; category: string; description: string; hoursSpent: number; taskId?: string }>,
-    assignedTL: { name: string; email: string } | undefined,
-    requesterId?: string | null
-  ) {
-    const actorId = requesterId || userId;
-    await WorkLogService.createOrReplaceWorkLog(actorId, items, assignedTL);
-    return buildStateForRequester(requesterId || actorId);
+  static async deleteWorkLogItem(worklogId: string, itemId: string, requesterId?: string | null) {
+    await WorkLogService.deleteWorkLogItem(worklogId, itemId);
+    return buildStateForRequester(requesterId || null);
   }
 
   static async sendEmail(worklogId: string | undefined, customSubject: string, customBody: string, recipientId: string | undefined, requesterId?: string | null) {

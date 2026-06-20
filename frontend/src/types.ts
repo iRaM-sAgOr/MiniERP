@@ -27,6 +27,7 @@ export interface PunchRecord {
 }
 
 export interface LogItem {
+  id?: string;
   project: string;
   category: 'Feature' | 'Bugfix' | 'Meeting' | 'Research' | 'Documentation' | 'Support';
   description: string;

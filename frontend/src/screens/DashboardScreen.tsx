@@ -71,7 +71,8 @@ interface DashboardScreenProps {
   triggerAlert: (type: 'success' | 'error' | 'info', text: string) => void;
   handleProfileSwitch: (id: string) => void;
   handlePunch: (type: 'Punch' | 'BreakStart' | 'BreakEnd' | 'ClockOut', note?: string) => Promise<void>;
-  handleLogSubmit: (items: LogItem[], tlId: string) => Promise<void>;
+  handleAppendWorklogItem: (item: LogItem, tlId: string) => Promise<void>;
+  handleDeleteWorklogItem: (worklogId: string, itemId: string) => Promise<void>;
   handleSendEmail: (worklogId: string | undefined, subject: string, body: string, recipientId: string) => Promise<void>;
   handleAssignTask: (taskData: any) => Promise<void>;
   handleCreateProject: (name: string, description: string) => Promise<void>;
@@ -102,7 +103,7 @@ export default function DashboardScreen(props: DashboardScreenProps) {
     activeTab, systemAlert, unseenSenders,
     setActiveTab, setCurrentMemberId, setCurrentScreen, setManagerViewMode, setMessages,
     socketRef, triggerAlert,
-    handleProfileSwitch, handlePunch, handleLogSubmit, handleSendEmail,
+    handleProfileSwitch, handlePunch, handleAppendWorklogItem, handleDeleteWorklogItem, handleSendEmail,
     handleAssignTask, handleCreateProject, handleDeleteProject,
     handleUpdateTaskStatus, handleAddTaskComment, handleUpdateTaskSubtasks,
     handleUpdateTaskDetails, handleRegisterUser, handleUpdateUserRole,
@@ -264,7 +265,7 @@ export default function DashboardScreen(props: DashboardScreenProps) {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <PunchCard currentMember={effectiveMember} punchesForToday={punchesForToday} todayWorkedMinutes={attendance?.self.todayWorkedMinutes ?? 0} isClockedOut={attendance?.self.isClockedOut ?? false} onPunch={handlePunch} loading={punchLoading} />
-                  <WorkLogForm currentMember={effectiveMember} teamLeads={teamLeads} savedWorkLog={activeWorklog} onSubmitLog={handleLogSubmit} loading={logLoading} tasks={tasks} projects={projects} />
+                  <WorkLogForm currentMember={effectiveMember} teamLeads={teamLeads} savedWorkLog={activeWorklog} onAppendItem={handleAppendWorklogItem} onDeleteWorklogItem={handleDeleteWorklogItem} loading={logLoading} tasks={tasks} projects={projects} />
                 </div>
               </div>
 

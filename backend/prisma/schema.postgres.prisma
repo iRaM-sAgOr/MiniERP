@@ -87,6 +87,7 @@ model WorkLogItem {
   category    String   // 'Feature' | 'Bugfix' | 'Meeting' | 'Research' | 'Documentation' | 'Support'
   description String
   hoursSpent  Float
+  githubLink  String?
   taskId      String?
   task        Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
 }

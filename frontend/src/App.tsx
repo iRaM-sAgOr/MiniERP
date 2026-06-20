@@ -158,7 +158,8 @@ export default function App() {
       triggerAlert={erp.triggerAlert}
       handleProfileSwitch={erp.handleProfileSwitch}
       handlePunch={erp.handlePunch}
-      handleLogSubmit={erp.handleLogSubmit}
+      handleAppendWorklogItem={erp.handleAppendWorklogItem}
+      handleDeleteWorklogItem={erp.handleDeleteWorklogItem}
       handleSendEmail={erp.handleSendEmail}
       handleAssignTask={erp.handleAssignTask}
       handleCreateProject={erp.handleCreateProject}

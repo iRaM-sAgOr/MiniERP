@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { getRequestUserId } from "../middleware/auth.middleware.js";
 import { ErpService } from "../services/erp.service.js";
 import { MemberService } from "../services/member.service.js";
+import { WorkLogService } from "../services/worklog.service.js";
 
 export const getManagerState = async (req: Request, res: Response) => {
   try {
@@ -50,13 +51,25 @@ export const punch = async (req: Request, res: Response) => {
   }
 };
 
-export const worklog = async (req: Request, res: Response) => {
+export const appendWorklogItem = async (req: Request, res: Response) => {
   try {
-    const { userId, items, assignedTL } = req.body;
-    const state = await ErpService.worklog(userId, items, assignedTL, getRequestUserId(req));
-    res.json({ state });
+    const { userId, item, assignedTL } = req.body;
+    const actorId = getRequestUserId(req) || userId;
+    const worklog = await WorkLogService.appendItem(actorId, item, assignedTL);
+    res.json({ worklog });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
+  }
+};
+
+export const deleteWorklogItem = async (req: Request, res: Response) => {
+  try {
+    const { worklogId, itemId } = req.body;
+    const worklogs = await WorkLogService.deleteWorkLogItem(worklogId, itemId);
+    res.json({ worklogs });
+  } catch (err: any) {
+    const status = err.message === "Work log not found." || err.message === "Work log item not found." ? 404 : 400;
+    res.status(status).json({ error: err.message });
   }
 };
 

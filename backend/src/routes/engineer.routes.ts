@@ -1,6 +1,8 @@
 import { Router } from "express";
 import {
   addTaskComment,
+  appendWorklogItem,
+  deleteWorklogItem,
   getEngineerState,
   punch,
   sendEmail,
@@ -8,7 +10,6 @@ import {
   updateProfile,
   updateTask,
   updateTaskSubtasks,
-  worklog,
 } from "../controllers/erp.controller.js";
 import { getProjects } from "../controllers/project.controller.js";
 import { getWorkLogs } from "../controllers/worklog.controller.js";
@@ -26,7 +27,8 @@ router.get("/worklogs", getWorkLogs);
 router.get("/messages", getMessages);
 router.get("/attendance", getAttendance);
 router.post("/punch", punch);
-router.post("/worklog", worklog);
+router.post("/worklog/append-item", appendWorklogItem);
+router.post("/worklog/delete-item", deleteWorklogItem);
 router.post("/send-email", sendEmail);
 router.post("/task/update", updateTask);
 router.post("/task/comment", addTaskComment);
