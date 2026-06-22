@@ -232,3 +232,125 @@ export const managerGeneratePasswordReset = async (req: Request, res: Response) 
     res.status(400).json({ error: err.message });
   }
 };
+
+type MessageContactSummary = {
+  contactId: string;
+  contactName: string;
+  contactAvatar: string;
+  lastMessageAt: string;
+  lastMessagePreview: string;
+};
+
+const toDayKey = (iso: string) => {
+  if (!iso) return "";
+  return iso.split("T")[0] || "";
+};
+
+export const getMessageContacts = async (req: Request, res: Response) => {
+  try {
+    const requesterId = getRequestUserId(req);
+    if (!requesterId) {
+      return res.status(401).json({ error: "JWT token is required." });
+    }
+
+    const messages = await ErpService.getVisibleMessagesForRequester(requesterId);
+    const contactsMap = new Map<string, MessageContactSummary>();
+
+    for (const message of messages) {
+      const isSender = message.senderId === requesterId;
+      const contactId = isSender ? message.receiverId : message.senderId;
+      if (!contactId) {
+        continue;
+      }
+
+      const contactName = isSender ? (message.receiverName || "Unknown") : (message.senderName || "Unknown");
+      const contactAvatar = isSender ? (message.receiverAvatar || "") : (message.senderAvatar || "");
+      const content = (message.text || message.content || "").trim();
+      const current = contactsMap.get(contactId);
+
+      if (!current || current.lastMessageAt < message.timestamp) {
+        contactsMap.set(contactId, {
+          contactId,
+          contactName,
+          contactAvatar,
+          lastMessageAt: message.timestamp,
+          lastMessagePreview: content,
+        });
+      }
+    }
+
+    const contacts = Array.from(contactsMap.values()).sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
+    res.json({ contacts });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const getConversationMessages = async (req: Request, res: Response) => {
+  try {
+    const requesterId = getRequestUserId(req);
+    if (!requesterId) {
+      return res.status(401).json({ error: "JWT token is required." });
+    }
+
+    const contactId = String(req.query.contactId || "").trim();
+    if (!contactId) {
+      return res.status(400).json({ error: "contactId query parameter is required." });
+    }
+
+    const messages = await ErpService.getConversationMessages(requesterId, contactId);
+    res.json({ messages });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const getSentEmailLogs = async (req: Request, res: Response) => {
+  try {
+    const requesterId = getRequestUserId(req);
+    if (!requesterId) {
+      return res.status(401).json({ error: "JWT token is required." });
+    }
+
+    const dayPage = Math.max(1, Number(req.query.dayPage || 1));
+    const dayWindow = Math.min(30, Math.max(1, Number(req.query.dayWindow || 5)));
+
+    const { logs, requester } = await ErpService.getVisibleSentEmailLogs(requesterId);
+    const grouped = new Map<string, any[]>();
+
+    for (const item of logs) {
+      const day = toDayKey(item.timestamp);
+      if (!grouped.has(day)) {
+        grouped.set(day, []);
+      }
+      grouped.get(day)!.push(item);
+    }
+
+    const availableDays = Array.from(grouped.keys()).sort((a, b) => b.localeCompare(a));
+    const totalDays = availableDays.length;
+    const totalDayPages = Math.max(1, Math.ceil(totalDays / dayWindow));
+    const boundedPage = Math.min(dayPage, totalDayPages);
+    const startIdx = (boundedPage - 1) * dayWindow;
+    const days = availableDays.slice(startIdx, startIdx + dayWindow);
+
+    const dayBuckets = days.map((day) => ({
+      day,
+      items: (grouped.get(day) || []).sort((a, b) => b.timestamp.localeCompare(a.timestamp)),
+    }));
+
+    res.json({
+      scope: requester?.roleType || "Engineer",
+      dayBuckets,
+      pagination: {
+        dayPage: boundedPage,
+        dayWindow,
+        totalDays,
+        totalDayPages,
+        hasNext: boundedPage < totalDayPages,
+        hasPrev: boundedPage > 1,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};

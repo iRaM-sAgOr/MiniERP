@@ -14,6 +14,8 @@ export class MessageRepository {
     senderId: string;
     senderName: string;
     senderAvatar: string;
+    receiverName?: string;
+    receiverAvatar?: string;
     content?: string;
     text?: string;
     channel?: string;

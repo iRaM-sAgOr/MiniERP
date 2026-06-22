@@ -123,6 +123,7 @@ export default function App() {
       tasks={erp.tasks}
       sentEmailsLog={erp.sentEmailsLog}
       messages={erp.messages}
+      messageContacts={erp.messageContacts}
       projects={erp.projects}
       authRoleType={erp.authRoleType}
       authMemberId={erp.authMemberId}
@@ -175,6 +176,9 @@ export default function App() {
       handleSendMessage={erp.handleSendMessage}
       handleLogout={erp.handleLogout}
       refetchAll={erp.refetchAll}
+      onFetchMessageContacts={erp.fetchMessageContacts}
+      onFetchConversationMessages={erp.fetchConversationMessages}
+      onFetchSentEmailLogs={erp.fetchSentEmailLogs}
       onFetchTasks={erp.fetchTaskList}
       onFetchAttendanceMonth={erp.fetchAttendanceForMonth}
     />

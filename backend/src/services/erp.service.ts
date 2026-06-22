@@ -34,6 +34,10 @@ type CommonState = {
   sentEmailsLog: any[];
 };
 
+const STATE_SCOPE_LIMIT = 5;
+
+const applyStateScopeLimit = <T>(items: T[], max = STATE_SCOPE_LIMIT) => items.slice(0, Math.max(0, max));
+
 const buildCommonState = async (requesterId?: string | null): Promise<CommonState> => {
   const requester = requesterId ? await ErpRepository.findRequesterById(requesterId) : null;
   const isManager = (requester?.roleType || "").toLowerCase() === "manager";
@@ -85,8 +89,19 @@ const buildCommonState = async (requesterId?: string | null): Promise<CommonStat
   };
 };
 
+const limitCommonState = (state: CommonState): CommonState => ({
+  ...state,
+  members: applyStateScopeLimit(state.members),
+  punches: applyStateScopeLimit(state.punches),
+  worklogs: applyStateScopeLimit(state.worklogs),
+  tasks: applyStateScopeLimit(state.tasks),
+  messages: applyStateScopeLimit(state.messages),
+  projects: applyStateScopeLimit(state.projects),
+  sentEmailsLog: applyStateScopeLimit(state.sentEmailsLog),
+});
+
 const buildManagerState = async (requesterId?: string | null) => {
-  const commonState = await buildCommonState(requesterId);
+  const commonState = limitCommonState(await buildCommonState(requesterId));
   const todayStr = new Date().toISOString().split("T")[0];
 
   return {
@@ -184,7 +199,7 @@ const buildEngineerState = async (requesterId?: string | null) => {
   const totalHoursLast30Days = recentDailyHours.reduce((sum, item) => sum + item.hours, 0);
   const todayWorkedHours = recentDailyHours.find(item => item.date === todayStr)?.hours || 0;
 
-  return {
+  const scopedState = {
     ...commonState,
     scope: "engineer",
     member: myMember,
@@ -208,6 +223,19 @@ const buildEngineerState = async (requesterId?: string | null) => {
     tasks: [...myTasks, ...otherTasks],
     myTasks,
     otherTasks,
+  };
+
+  return {
+    ...scopedState,
+    members: applyStateScopeLimit(scopedState.members),
+    punches: applyStateScopeLimit(scopedState.punches),
+    worklogs: applyStateScopeLimit(scopedState.worklogs),
+    tasks: applyStateScopeLimit(scopedState.tasks),
+    myTasks: applyStateScopeLimit(scopedState.myTasks),
+    otherTasks: applyStateScopeLimit(scopedState.otherTasks),
+    messages: applyStateScopeLimit(scopedState.messages),
+    projects: applyStateScopeLimit(scopedState.projects),
+    sentEmailsLog: applyStateScopeLimit(scopedState.sentEmailsLog),
   };
 };
 
@@ -379,5 +407,47 @@ export class ErpService {
     const message = await MessageService.createDirectMessage(requesterId || senderId, receiverId, text);
     emitDirectMessage(message);
     return buildStateForRequester(requesterId || senderId);
+  }
+
+  static async getVisibleMessagesForRequester(requesterId: string) {
+    if (!requesterId) {
+      return [];
+    }
+
+    const allMessages = await ErpRepository.findMessages();
+    return allMessages
+      .filter(message => message.channel === "general" || message.senderId === requesterId || message.receiverId === requesterId)
+      .map(message => ({
+        ...message,
+        text: message.text || message.content || "",
+        content: message.content || message.text || "",
+      }));
+  }
+
+  static async getConversationMessages(requesterId: string, contactId: string) {
+    const visibleMessages = await this.getVisibleMessagesForRequester(requesterId);
+    return visibleMessages.filter(
+      message =>
+        (message.senderId === requesterId && message.receiverId === contactId) ||
+        (message.senderId === contactId && message.receiverId === requesterId)
+    );
+  }
+
+  static async getVisibleSentEmailLogs(requesterId: string) {
+    const requester = await ErpRepository.findRequesterById(requesterId);
+    if (!requester) {
+      return { logs: [], requester: null };
+    }
+
+    const isManager = (requester.roleType || "").toLowerCase() === "manager";
+    const sentEmailsLog = await ErpRepository.findSentEmails();
+
+    const logs = isManager
+      ? sentEmailsLog
+      : sentEmailsLog.filter(
+          log => log.senderId === requesterId || log.receiverEmail === requester.email || log.receiverEmail === "all@minierp.local"
+        );
+
+    return { logs, requester };
   }
 }

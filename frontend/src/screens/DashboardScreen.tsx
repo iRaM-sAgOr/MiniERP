@@ -11,7 +11,7 @@ import ProfileManagement from '../components/ProfileManagement';
 import MessagesPanel from '../components/MessagesPanel';
 import SentEmailsPanel from '../components/SentEmailsPanel';
 import RegistrationFormCard from '../components/RegistrationFormCard';
-import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage, EnterpriseProject, AttendanceData, DayAttendanceRow, TaskListQuery, TaskListResult } from '../types';
+import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage, EnterpriseProject, AttendanceData, DayAttendanceRow, TaskListQuery, TaskListResult, MessageContact, SentEmailLogPage } from '../types';
 import { ActiveTab, Screen } from '../hooks/useErpState';
 // @ts-ignore
 import aiLogo from '../assets/images/ai_solution_usa_logo_1780158886266.png';
@@ -22,8 +22,9 @@ interface DashboardScreenProps {
   punches: PunchRecord[];
   worklogs: WorkLog[];
   tasks: TaskDistribution[];
-  sentEmailsLog: any[];
+  sentEmailsLog: SentEmailLogPage | null;
   messages: DirectMessage[];
+  messageContacts: MessageContact[];
   projects: EnterpriseProject[];
 
   // Auth
@@ -88,13 +89,16 @@ interface DashboardScreenProps {
   handleSendMessage: (receiverId: string, text: string, socketRef: React.MutableRefObject<any>) => Promise<void>;
   handleLogout: () => void;
   refetchAll: () => void;
+  onFetchMessageContacts: () => Promise<void>;
+  onFetchConversationMessages: (contactId: string) => Promise<void>;
+  onFetchSentEmailLogs: (dayPage?: number, dayWindow?: number) => Promise<void>;
   onFetchTasks: (query?: TaskListQuery) => Promise<TaskListResult>;
   onFetchAttendanceMonth: (memberId: string, year: number, month: number) => Promise<DayAttendanceRow[]>;
 }
 
 export default function DashboardScreen(props: DashboardScreenProps) {
   const {
-    members, punches, worklogs, tasks, sentEmailsLog, messages, projects,
+    members, punches, worklogs, tasks, sentEmailsLog, messages, messageContacts, projects,
     authRoleType, authMemberId, currentMemberId, managerViewMode,
     currentMember, effectiveMember, effectiveRoleType,
     teamLeads, todayStr, attendance, activeWorklog,
@@ -109,12 +113,15 @@ export default function DashboardScreen(props: DashboardScreenProps) {
     handleUpdateTaskStatus, handleAddTaskComment, handleUpdateTaskSubtasks,
     handleUpdateTaskDetails, handleRegisterUser, handleUpdateUserRole,
     handleUpdateProfile, handleManagerGeneratePasswordReset,
-    handleSendMessage, handleLogout, refetchAll, onFetchTasks, onFetchAttendanceMonth,
+    handleSendMessage, handleLogout, refetchAll,
+    onFetchMessageContacts, onFetchConversationMessages, onFetchSentEmailLogs,
+    onFetchTasks, onFetchAttendanceMonth,
   } = props;
 
   const [showRegForm, setShowRegForm] = useState(false);
   const [selectedChatUserId, setSelectedChatUserId] = useState('');
   const [typedMessage, setTypedMessage] = useState('');
+  const [sentLogsDayPage, setSentLogsDayPage] = useState(1);
 
   const totalUnseen = Array.from(unseenSenders.values()).reduce((s, n) => s + n, 0);
   const punchesForToday = punches
@@ -123,9 +130,30 @@ export default function DashboardScreen(props: DashboardScreenProps) {
 
   const handleSelectChatUser = (id: string) => {
     setSelectedChatUserId(id);
+    onFetchConversationMessages(id);
     // Clear unseen for that sender
     setMessages(prev => prev); // trigger re-render; actual clearing happens via unseenSenders in App
   };
+
+  React.useEffect(() => {
+    if (activeTab === 'messages') {
+      onFetchMessageContacts();
+    }
+  }, [activeTab, onFetchMessageContacts]);
+
+  React.useEffect(() => {
+    if (activeTab === 'sentLogs') {
+      onFetchSentEmailLogs(sentLogsDayPage, 5);
+    }
+  }, [activeTab, sentLogsDayPage, onFetchSentEmailLogs]);
+
+  React.useEffect(() => {
+    if (!selectedChatUserId && messageContacts.length > 0 && activeTab === 'messages') {
+      const firstContactId = messageContacts[0].contactId;
+      setSelectedChatUserId(firstContactId);
+      onFetchConversationMessages(firstContactId);
+    }
+  }, [activeTab, messageContacts, selectedChatUserId, onFetchConversationMessages]);
 
   return (
     <div className="min-h-screen bg-[#fbfaf5] text-[#3d403a] flex flex-col antialiased font-sans" id="remote-erp-root-panel">
@@ -344,6 +372,7 @@ export default function DashboardScreen(props: DashboardScreenProps) {
                 <MessagesPanel
                   currentMember={effectiveMember}
                   members={members}
+                  contacts={messageContacts}
                   messages={messages}
                   unseenSenders={unseenSenders}
                   selectedChatUserId={selectedChatUserId}
@@ -361,6 +390,9 @@ export default function DashboardScreen(props: DashboardScreenProps) {
                   currentMemberId={currentMemberId}
                   members={members}
                   effectiveRoleType={effectiveRoleType}
+                  dayPage={sentLogsDayPage}
+                  onPrevDayPage={() => setSentLogsDayPage(prev => Math.max(1, prev - 1))}
+                  onNextDayPage={() => setSentLogsDayPage(prev => Math.min(sentEmailsLog?.pagination?.totalDayPages || prev, prev + 1))}
                 />
               )}
 

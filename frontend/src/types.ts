@@ -49,8 +49,48 @@ export interface DirectMessage {
   senderId: string;
   receiverId: string;
   senderName: string;
+  senderAvatar?: string;
+  receiverName?: string;
+  receiverAvatar?: string;
   text: string;
+  content?: string;
   timestamp: string;
+}
+
+export interface MessageContact {
+  contactId: string;
+  contactName: string;
+  contactAvatar?: string;
+  lastMessageAt: string;
+  lastMessagePreview: string;
+}
+
+export interface SentEmailLogEntry {
+  id: string;
+  senderId: string;
+  subject: string;
+  receiverName: string;
+  receiverEmail: string;
+  body: string;
+  timestamp: string;
+}
+
+export interface SentEmailDayBucket {
+  day: string;
+  items: SentEmailLogEntry[];
+}
+
+export interface SentEmailLogPage {
+  scope: string;
+  dayBuckets: SentEmailDayBucket[];
+  pagination: {
+    dayPage: number;
+    dayWindow: number;
+    totalDays: number;
+    totalDayPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
 }
 
 export interface WorkLog {

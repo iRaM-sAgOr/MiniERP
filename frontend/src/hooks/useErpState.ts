@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, SetStateAction } from 'react';
 import { createApiFetch } from '../api/apiFetch';
-import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage, EnterpriseProject, AttendanceData, DayAttendanceRow, TaskListQuery, TaskListResult } from '../types';
+import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage, EnterpriseProject, AttendanceData, DayAttendanceRow, TaskListQuery, TaskListResult, MessageContact, SentEmailLogPage } from '../types';
 import { upsertMessage } from './useChatSocket';
 
 export type ActiveTab = 'roster' | 'allocator' | 'messages' | 'sentLogs' | 'profile';
@@ -12,8 +12,9 @@ export interface ErpState {
   punches: PunchRecord[];
   worklogs: WorkLog[];
   tasks: TaskDistribution[];
-  sentEmailsLog: any[];
+  sentEmailsLog: SentEmailLogPage | null;
   messages: DirectMessage[];
+  messageContacts: MessageContact[];
   projects: EnterpriseProject[];
   attendance: AttendanceData | null;
 
@@ -93,7 +94,9 @@ export interface ErpState {
   handleSendMessage: (receiverId: string, text: string, socketRef: React.MutableRefObject<any>) => Promise<void>;
   handleLogout: () => void;
   refetchAll: () => void;
-  fetchMessages: () => Promise<void>;
+  fetchMessageContacts: () => Promise<void>;
+  fetchConversationMessages: (contactId: string) => Promise<void>;
+  fetchSentEmailLogs: (dayPage?: number, dayWindow?: number) => Promise<void>;
   fetchTaskList: (query?: TaskListQuery) => Promise<TaskListResult>;
   fetchAttendance: () => Promise<void>;
   fetchAttendanceForMonth: (memberId: string, year: number, month: number) => Promise<DayAttendanceRow[]>;
@@ -104,8 +107,9 @@ export function useErpState(): ErpState {
   const [punches, setPunches] = useState<PunchRecord[]>([]);
   const [worklogs, setWorklogs] = useState<WorkLog[]>([]);
   const [tasks, setTasks] = useState<TaskDistribution[]>([]);
-  const [sentEmailsLog, setSentEmailsLog] = useState<any[]>([]);
+  const [sentEmailsLog, setSentEmailsLog] = useState<SentEmailLogPage | null>(null);
   const [messages, setMessages] = useState<DirectMessage[]>([]);
+  const [messageContacts, setMessageContacts] = useState<MessageContact[]>([]);
   const [projects, setProjects] = useState<EnterpriseProject[]>([]);
   const [attendance, setAttendance] = useState<AttendanceData | null>(null);
 
@@ -171,7 +175,6 @@ export function useErpState(): ErpState {
         setMembers(data.members || []);
         setPunches(data.punches || []);
         setTasks(data.tasks || []);
-        setSentEmailsLog(data.sentEmailsLog || []);
       }
     } catch (err) {
       console.error('Failed to query standard state:', err);
@@ -193,16 +196,47 @@ export function useErpState(): ErpState {
     }
   }, [authToken, apiFetch]);
 
-  const fetchMessages = useCallback(async () => {
+  const fetchMessageContacts = useCallback(async () => {
     if (!authToken) return;
     try {
-      const res = await apiFetch('/api/erp/messages');
+      const res = await apiFetch('/api/erp/messages/contacts');
+      if (res.ok) {
+        const data = await res.json();
+        setMessageContacts(data.contacts || []);
+      }
+    } catch (err) {
+      console.error('Failed to query message contacts:', err);
+    }
+  }, [authToken, apiFetch]);
+
+  const fetchConversationMessages = useCallback(async (contactId: string) => {
+    if (!authToken || !contactId) {
+      setMessages([]);
+      return;
+    }
+    try {
+      const params = new URLSearchParams({ contactId });
+      const res = await apiFetch(`/api/erp/messages/conversation?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         setMessages(data.messages || []);
       }
     } catch (err) {
-      console.error('Failed to query message list:', err);
+      console.error('Failed to query conversation messages:', err);
+    }
+  }, [authToken, apiFetch]);
+
+  const fetchSentEmailLogs = useCallback(async (dayPage = 1, dayWindow = 5) => {
+    if (!authToken) return;
+    try {
+      const params = new URLSearchParams({ dayPage: String(dayPage), dayWindow: String(dayWindow) });
+      const res = await apiFetch(`/api/erp/sent-email-logs?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSentEmailsLog(data);
+      }
+    } catch (err) {
+      console.error('Failed to query sent email logs:', err);
     }
   }, [authToken, apiFetch]);
 
@@ -288,10 +322,11 @@ export function useErpState(): ErpState {
   const refetchAll = useCallback(() => {
     fetchState();
     fetchWorklogs();
-    fetchMessages();
+    fetchMessageContacts();
+    fetchSentEmailLogs();
     fetchProjects();
     fetchAttendance();
-  }, [fetchState, fetchWorklogs, fetchMessages, fetchProjects, fetchAttendance]);
+  }, [fetchState, fetchWorklogs, fetchMessageContacts, fetchSentEmailLogs, fetchProjects, fetchAttendance]);
 
   useEffect(() => { refetchAll(); }, [authToken]);
 
@@ -377,11 +412,11 @@ export function useErpState(): ErpState {
         body: JSON.stringify({ worklogId, customSubject: subject, customBody: body, recipientId }),
       });
       if (res.ok) {
-        const data = await res.json();
-        setSentEmailsLog(data.state.sentEmailsLog);
+        await res.json();
         if (worklogId) {
           await fetchWorklogs();
         }
+        await fetchSentEmailLogs();
         triggerAlert('success', 'Mail sent successfully. Logging dispatch item.');
       } else {
         triggerAlert('error', 'Simulation dispatch failure on server.');
@@ -391,7 +426,7 @@ export function useErpState(): ErpState {
     } finally {
       setEmailLoading(false);
     }
-  }, [apiFetch, fetchWorklogs, triggerAlert]);
+  }, [apiFetch, fetchSentEmailLogs, fetchWorklogs, triggerAlert]);
 
   const handleAssignTask = useCallback(async (taskData: {
     title: string; description: string; assignedTo: string;
@@ -619,8 +654,7 @@ export function useErpState(): ErpState {
         setMembers(data.state.members || []);
         setPunches(data.state.punches || []);
         setTasks(data.state.tasks || []);
-        setSentEmailsLog(data.state.sentEmailsLog || []);
-        await Promise.all([fetchWorklogs(), fetchMessages(), fetchProjects()]);
+        await Promise.all([fetchWorklogs(), fetchMessageContacts(), fetchSentEmailLogs(), fetchProjects()]);
         triggerAlert('success', 'Profile updated successfully.');
       } else {
         const err = await res.json();
@@ -636,7 +670,7 @@ export function useErpState(): ErpState {
     } finally {
       setProfileLoading(false);
     }
-  }, [apiFetch, currentMemberId, fetchWorklogs, fetchMessages, fetchProjects, triggerAlert]);
+  }, [apiFetch, currentMemberId, fetchWorklogs, fetchMessageContacts, fetchSentEmailLogs, fetchProjects, triggerAlert]);
 
   const handleForgotPassword = useCallback(async (email: string) => {
     if (!email.trim()) { triggerAlert('error', 'Please enter your account email.'); return; }
@@ -722,7 +756,7 @@ export function useErpState(): ErpState {
         body: JSON.stringify({ senderId: currentMemberId, receiverId, text: normalizedText }),
       });
       if (res.ok) {
-        await fetchMessages();
+        await Promise.all([fetchConversationMessages(receiverId), fetchMessageContacts()]);
         triggerAlert('success', 'Message dispatched successfully!');
       } else {
         triggerAlert('error', 'Server failed to save direct message.');
@@ -730,7 +764,7 @@ export function useErpState(): ErpState {
     } catch {
       triggerAlert('error', 'Connection error routing chat stream.');
     }
-  }, [apiFetch, currentMemberId, fetchMessages, triggerAlert]);
+  }, [apiFetch, currentMemberId, fetchConversationMessages, fetchMessageContacts, triggerAlert]);
 
   const handleLogout = useCallback(() => {
     setCurrentMemberId('');
@@ -770,7 +804,7 @@ export function useErpState(): ErpState {
     : null;
 
   return {
-  members, punches, worklogs, tasks, sentEmailsLog, messages, projects, attendance,
+  members, punches, worklogs, tasks, sentEmailsLog, messages, messageContacts, projects, attendance,
   authToken, authRoleType, authMemberId, currentMemberId,
   dataLoading, punchLoading, logLoading, emailLoading,
   taskLoading, projectLoading, profileLoading, authLoading,
@@ -788,7 +822,8 @@ export function useErpState(): ErpState {
   handleRegisterUser, handleUpdateUserRole, handleUpdateProfile,
   handleForgotPassword, handleResetPassword,
   handleManagerGeneratePasswordReset, handleSendMessage,
-  handleLogout, refetchAll, fetchMessages,
+  handleLogout, refetchAll, fetchMessageContacts,
+  fetchConversationMessages, fetchSentEmailLogs,
   fetchTaskList,
   fetchAttendance, fetchAttendanceForMonth,
 };

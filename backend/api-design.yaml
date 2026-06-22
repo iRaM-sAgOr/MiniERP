@@ -498,6 +498,224 @@ paths:
         '200':
           description: Role updated
 
+  /api/manager/messages/contacts:
+    get:
+      tags: [Manager]
+      summary: Get message contacts list (deduplicated, sorted by latest activity)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of message contacts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contacts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        contactId:
+                          type: string
+                        contactName:
+                          type: string
+                        contactAvatar:
+                          type: string
+                        lastMessageAt:
+                          type: string
+                        lastMessagePreview:
+                          type: string
+
+  /api/engineer/messages/contacts:
+    get:
+      tags: [Engineer]
+      summary: Get message contacts list (deduplicated, sorted by latest activity)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of message contacts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contacts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        contactId:
+                          type: string
+                        contactName:
+                          type: string
+                        contactAvatar:
+                          type: string
+                        lastMessageAt:
+                          type: string
+                        lastMessagePreview:
+                          type: string
+
+  /api/manager/messages/conversation:
+    get:
+      tags: [Manager]
+      summary: Get conversation messages with specific contact
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: contactId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Conversation messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      type: object
+
+  /api/engineer/messages/conversation:
+    get:
+      tags: [Engineer]
+      summary: Get conversation messages with specific contact
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: contactId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Conversation messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      type: object
+
+  /api/manager/sent-email-logs:
+    get:
+      tags: [Manager]
+      summary: Get sent email logs with day-based pagination
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: dayPage
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: dayWindow
+          in: query
+          schema:
+            type: integer
+            default: 5
+      responses:
+        '200':
+          description: Paginated sent email logs grouped by day
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  scope:
+                    type: string
+                  dayBuckets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        day:
+                          type: string
+                        items:
+                          type: array
+                          items:
+                            type: object
+                  pagination:
+                    type: object
+                    properties:
+                      dayPage:
+                        type: integer
+                      dayWindow:
+                        type: integer
+                      totalDays:
+                        type: integer
+                      totalDayPages:
+                        type: integer
+                      hasNext:
+                        type: boolean
+                      hasPrev:
+                        type: boolean
+
+  /api/engineer/sent-email-logs:
+    get:
+      tags: [Engineer]
+      summary: Get sent email logs with day-based pagination
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: dayPage
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: dayWindow
+          in: query
+          schema:
+            type: integer
+            default: 5
+      responses:
+        '200':
+          description: Paginated sent email logs grouped by day
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  scope:
+                    type: string
+                  dayBuckets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        day:
+                          type: string
+                        items:
+                          type: array
+                          items:
+                            type: object
+                  pagination:
+                    type: object
+                    properties:
+                      dayPage:
+                        type: integer
+                      dayWindow:
+                        type: integer
+                      totalDays:
+                        type: integer
+                      totalDayPages:
+                        type: integer
+                      hasNext:
+                        type: boolean
+                      hasPrev:
+                        type: boolean
+
   /api/manager/send-email:
     post:
       tags: [Manager]

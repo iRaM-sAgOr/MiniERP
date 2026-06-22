@@ -1,10 +1,11 @@
 import React, { useRef, useEffect } from 'react';
 import { MessageSquare, Send } from 'lucide-react';
-import { TeamMember, DirectMessage } from '../types';
+import { TeamMember, DirectMessage, MessageContact } from '../types';
 
 interface MessagesPanelProps {
   currentMember: TeamMember;
   members: TeamMember[];
+  contacts: MessageContact[];
   messages: DirectMessage[];
   unseenSenders: Map<string, number>;
   selectedChatUserId: string;
@@ -17,6 +18,7 @@ interface MessagesPanelProps {
 export default function MessagesPanel({
   currentMember,
   members,
+  contacts,
   messages,
   unseenSenders,
   selectedChatUserId,
@@ -38,6 +40,7 @@ export default function MessagesPanel({
   );
 
   const correspondent = members.find(m => m.id === selectedChatUserId);
+  const selectedContact = contacts.find(c => c.contactId === selectedChatUserId);
 
   const handleSend = () => {
     if (typedMessage.trim() && selectedChatUserId) {
@@ -63,16 +66,15 @@ export default function MessagesPanel({
         <div className="md:col-span-1 border-r border-[#e2dfd2]/60 pr-4 space-y-2">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono text-left">Active Remote Members</span>
           <div className="space-y-1.5 max-h-75 overflow-y-auto">
-            {members
-              .filter(m => m.id !== currentMember.id)
-              .map(m => {
-                const count = unseenSenders.get(m.id) || 0;
+            {contacts.map(contact => {
+                const m = members.find(member => member.id === contact.contactId);
+                const count = unseenSenders.get(contact.contactId) || 0;
                 return (
                   <button
-                    key={m.id}
-                    onClick={() => onSelectUser(m.id)}
+                    key={contact.contactId}
+                    onClick={() => onSelectUser(contact.contactId)}
                     className={`w-full flex items-center justify-between p-2 rounded-xl text-left text-xs transition-all cursor-pointer ${
-                      selectedChatUserId === m.id
+                      selectedChatUserId === contact.contactId
                         ? 'bg-[#5a6e53]/10 text-[#2d3a2a] border border-[#5a6e53]/35 font-bold'
                         : count > 0
                           ? 'bg-red-50 border border-red-200 text-[#3d403a]'
@@ -81,7 +83,7 @@ export default function MessagesPanel({
                   >
                     <div className="flex items-center gap-2">
                       <div className="relative">
-                        <img src={m.avatar} alt={m.name} className="w-6 h-6 rounded-full object-cover border" referrerPolicy="no-referrer" />
+                        <img src={m?.avatar || contact.contactAvatar || currentMember.avatar} alt={m?.name || contact.contactName} className="w-6 h-6 rounded-full object-cover border" referrerPolicy="no-referrer" />
                         {count > 0 && (
                           <span className="absolute -top-1 -right-1 min-w-3.5 h-3.5 bg-red-500 text-white text-[8px] font-extrabold rounded-full flex items-center justify-center px-0.5 leading-none">
                             {count > 9 ? '9+' : count}
@@ -89,12 +91,12 @@ export default function MessagesPanel({
                         )}
                       </div>
                       <div>
-                        <p className="font-bold leading-tight">{m.name}</p>
-                        <p className="text-[10px] text-slate-400 font-mono italic leading-none">{m.roleType}</p>
+                        <p className="font-bold leading-tight">{m?.name || contact.contactName}</p>
+                        <p className="text-[10px] text-slate-400 font-mono italic leading-none">{m?.roleType || 'Contact'}</p>
                       </div>
                     </div>
-                    <span className={`text-[9px] font-extrabold uppercase font-mono px-1.5 py-0.5 rounded leading-none shrink-0 ${m.punchStatus === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}>
-                      {m.punchStatus}
+                    <span className={`text-[9px] font-extrabold uppercase font-mono px-1.5 py-0.5 rounded leading-none shrink-0 ${m?.punchStatus === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}>
+                      {m?.punchStatus || 'Unknown'}
                     </span>
                   </button>
                 );
@@ -109,7 +111,7 @@ export default function MessagesPanel({
               <div className="space-y-3 overflow-y-auto max-h-61 pr-1 flex-1 mb-4 text-left">
                 {threadMessages.length === 0 ? (
                   <div className="text-center py-12 text-[#7a7d75] italic text-[11px]">
-                    No past communications with {correspondent?.name || 'this correspondent'}. Write a diagnostic message below!
+                    No past communications with {correspondent?.name || selectedContact?.contactName || 'this correspondent'}. Write a diagnostic message below!
                   </div>
                 ) : (
                   threadMessages.map(msg => {

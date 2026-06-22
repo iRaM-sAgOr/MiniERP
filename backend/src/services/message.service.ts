@@ -46,12 +46,19 @@ export class MessageService {
       throw new Error("Sender profile not found.");
     }
 
+    const receiver = await MessageRepository.findMemberById(receiverId);
+    if (!receiver) {
+      throw new Error("Receiver profile not found.");
+    }
+
     const messageId = "msg_" + Math.random().toString(36).substr(2, 9);
     return MessageRepository.create({
       id: messageId,
       senderId,
       senderName: sender.name,
       senderAvatar: sender.avatar,
+      receiverName: receiver.name,
+      receiverAvatar: receiver.avatar,
       content: text,
       text,
       channel: "dm",

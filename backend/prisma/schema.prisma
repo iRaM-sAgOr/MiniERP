@@ -27,6 +27,8 @@ model Member {
   tasksAssigned  Task[]         @relation("AssignedTo")
   tasksCreated   Task[]         @relation("AssignedBy")
   resetTokens    PasswordResetToken[]
+  messagesSent   Message[]      @relation("MessageSender")
+  messagesReceived Message[]    @relation("MessageReceiver")
 }
 
 model PasswordResetToken {
@@ -147,13 +149,20 @@ model HistoryEvent {
 model Message {
   id           String   @id
   senderId     String
-  senderName   String
-  senderAvatar String
+  sender       Member   @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  senderName   String   // Denormalized for historical record (member may be deleted)
+  senderAvatar String   // Denormalized for historical record
+  receiverId   String?  // DM receiver user ID
+  receiver     Member?  @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  receiverName String?  // Denormalized for historical record (member may be deleted)
+  receiverAvatar String? // Denormalized for historical record
   content      String?  // Saved backend general channel messages
   text         String?  // Saved frontend direct messages
   channel      String?  // "general" or other channels
-  receiverId   String?  // DM receiver user ID
   timestamp    String   // ISO string
+  
+  @@index([senderId])
+  @@index([receiverId])
 }
 
 model SentEmailLog {
