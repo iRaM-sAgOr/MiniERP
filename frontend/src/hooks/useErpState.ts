@@ -85,6 +85,7 @@ export interface ErpState {
   handleUpdateUserRole: (userId: string, roleType: 'Engineer' | 'Manager') => Promise<void>;
   handleUpdateProfile: (profileData: {
     name: string; role: string; avatar: string;
+    avatarFile?: File | null;
     department: 'Engineering' | 'Product' | 'Design' | 'Marketing';
     agreementHours: number; breakDay: string;
   }) => Promise<void>;
@@ -640,14 +641,28 @@ export function useErpState(): ErpState {
 
   const handleUpdateProfile = useCallback(async (profileData: {
     name: string; role: string; avatar: string;
+    avatarFile?: File | null;
     department: 'Engineering' | 'Product' | 'Design' | 'Marketing';
     agreementHours: number; breakDay: string;
   }) => {
     try {
       setProfileLoading(true);
+
+      const formData = new FormData();
+      formData.append('userId', currentMemberId);
+      formData.append('name', profileData.name);
+      formData.append('role', profileData.role);
+      formData.append('avatar', profileData.avatar);
+      formData.append('department', profileData.department);
+      formData.append('agreementHours', String(profileData.agreementHours));
+      formData.append('breakDay', profileData.breakDay);
+      if (profileData.avatarFile) {
+        formData.append('avatarFile', profileData.avatarFile);
+      }
+
       const res = await apiFetch('/api/erp/profile', {
         method: 'POST',
-        body: JSON.stringify({ userId: currentMemberId, ...profileData }),
+        body: formData,
       });
       if (res.ok) {
         const data = await res.json();

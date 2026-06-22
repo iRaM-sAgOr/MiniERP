@@ -1,4 +1,5 @@
 import express from "express";
+import { mkdirSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createServer } from "http";
@@ -76,6 +77,10 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use(requestLogger);
+
+const uploadsPath = path.resolve(__dirname, "uploads");
+mkdirSync(uploadsPath, { recursive: true });
+app.use("/uploads", express.static(uploadsPath));
 
 app.use("/api", docsRoutes);
 

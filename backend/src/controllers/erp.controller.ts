@@ -1,4 +1,8 @@
 import type { Request, Response } from "express";
+import { mkdir } from "fs/promises";
+import path from "path";
+import sharp from "sharp";
+import { fileURLToPath } from "url";
 import { getRequestUserId } from "../middleware/auth.middleware.js";
 import { ErpService } from "../services/erp.service.js";
 import { MemberService } from "../services/member.service.js";
@@ -6,6 +10,12 @@ import { MessageService } from "../services/message.service.js";
 import { SentEmailService } from "../services/sent-email.service.js";
 import { TaskService } from "../services/task.service.js";
 import { WorkLogService } from "../services/worklog.service.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const AVATAR_UPLOAD_DIR = path.resolve(__dirname, "../../uploads/avatars");
+const MIN_AVATAR_DIMENSION = 128;
+const MAX_AVATAR_DIMENSION = 2048;
 
 export const getManagerState = async (req: Request, res: Response) => {
   try {
@@ -182,7 +192,48 @@ export const updateRole = async (req: Request, res: Response) => {
 export const updateProfile = async (req: Request, res: Response) => {
   try {
     const { userId, ...profileData } = req.body;
-    const result = await ErpService.updateProfile(userId, profileData, getRequestUserId(req));
+    const parsedUserId = typeof userId === "string" ? userId.trim() : "";
+    if (!parsedUserId) {
+      return res.status(400).json({ error: "userId is required." });
+    }
+
+    if (req.file) {
+      const metadata = await sharp(req.file.buffer).metadata();
+      const width = metadata.width || 0;
+      const height = metadata.height || 0;
+      const isResolutionValid =
+        width >= MIN_AVATAR_DIMENSION &&
+        height >= MIN_AVATAR_DIMENSION &&
+        width <= MAX_AVATAR_DIMENSION &&
+        height <= MAX_AVATAR_DIMENSION;
+
+      if (!isResolutionValid) {
+        return res.status(400).json({
+          error: `Profile image resolution must be between ${MIN_AVATAR_DIMENSION}x${MIN_AVATAR_DIMENSION} and ${MAX_AVATAR_DIMENSION}x${MAX_AVATAR_DIMENSION}.`,
+        });
+      }
+
+      await mkdir(AVATAR_UPLOAD_DIR, { recursive: true });
+
+      const ext = req.file.mimetype === "image/png" ? "png" : "jpg";
+      const fileName = `avatar_${parsedUserId}_${Date.now()}.${ext}`;
+      const outputPath = path.join(AVATAR_UPLOAD_DIR, fileName);
+
+      if (ext === "png") {
+        await sharp(req.file.buffer).png({ compressionLevel: 9 }).toFile(outputPath);
+      } else {
+        await sharp(req.file.buffer).jpeg({ quality: 88 }).toFile(outputPath);
+      }
+
+      const host = req.get("host");
+      if (!host) {
+        return res.status(400).json({ error: "Unable to resolve upload host." });
+      }
+
+      profileData.avatar = `${req.protocol}://${host}/uploads/avatars/${fileName}`;
+    }
+
+    const result = await ErpService.updateProfile(parsedUserId, profileData, getRequestUserId(req));
     res.json(result);
   } catch (err: any) {
     const status = err.message === "You can update only your own profile." ? 403 : 400;

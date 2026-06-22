@@ -8,6 +8,7 @@ interface ProfileManagementProps {
     name: string;
     role: string;
     avatar: string;
+    avatarFile?: File | null;
     department: 'Engineering' | 'Product' | 'Design' | 'Marketing';
     agreementHours: number;
     breakDay: string;
@@ -19,6 +20,9 @@ export default function ProfileManagement({ currentMember, loading, onUpdateProf
   const [name, setName] = useState(currentMember.name);
   const [role, setRole] = useState(currentMember.role);
   const [avatar, setAvatar] = useState(currentMember.avatar || '');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState(currentMember.avatar || '');
+  const [avatarError, setAvatarError] = useState('');
   const [department, setDepartment] = useState<TeamMember['department']>(currentMember.department || 'Engineering');
   const [agreementHours, setAgreementHours] = useState<number>(currentMember.agreementHours || 20);
   const [isEditing, setIsEditing] = useState(false);
@@ -34,6 +38,9 @@ export default function ProfileManagement({ currentMember, loading, onUpdateProf
     setName(member.name);
     setRole(member.role);
     setAvatar(member.avatar || '');
+    setAvatarFile(null);
+    setAvatarPreviewUrl(member.avatar || '');
+    setAvatarError('');
     setDepartment(member.department || 'Engineering');
     setAgreementHours(member.agreementHours || 20);
     const rawDays = (member.breakDay || 'Friday')
@@ -49,6 +56,9 @@ export default function ProfileManagement({ currentMember, loading, onUpdateProf
     setName(currentMember.name);
     setRole(currentMember.role);
     setAvatar(currentMember.avatar || '');
+    setAvatarFile(null);
+    setAvatarPreviewUrl(currentMember.avatar || '');
+    setAvatarError('');
     setDepartment(currentMember.department || 'Engineering');
     setAgreementHours(currentMember.agreementHours || 20);
     const rawDays = (currentMember.breakDay || 'Friday')
@@ -73,16 +83,81 @@ export default function ProfileManagement({ currentMember, loading, onUpdateProf
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (avatarError) return;
+
     await onUpdateProfile({
       name,
       role,
       avatar,
+      avatarFile,
       department,
       agreementHours,
       breakDay: breakDays.join(', '),
     });
+
+    setAvatarFile(null);
     setIsEditing(false);
   };
+
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    if (!file) {
+      setAvatarFile(null);
+      setAvatarPreviewUrl(avatar);
+      setAvatarError('');
+      return;
+    }
+
+    const allowedTypes = ['image/png', 'image/jpeg'];
+    if (!allowedTypes.includes(file.type)) {
+      setAvatarError('Only PNG and JPEG files are allowed.');
+      setAvatarFile(null);
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError('Profile image must be 5MB or smaller.');
+      setAvatarFile(null);
+      return;
+    }
+
+    const previewObjectUrl = URL.createObjectURL(file);
+    const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve({ width: img.width, height: img.height });
+      img.onerror = () => reject(new Error('Invalid image file.'));
+      img.src = previewObjectUrl;
+    }).catch(() => null);
+
+    if (!dimensions) {
+      URL.revokeObjectURL(previewObjectUrl);
+      setAvatarError('Selected image could not be read.');
+      setAvatarFile(null);
+      return;
+    }
+
+    const min = 128;
+    const max = 2048;
+    if (dimensions.width < min || dimensions.height < min || dimensions.width > max || dimensions.height > max) {
+      URL.revokeObjectURL(previewObjectUrl);
+      setAvatarError(`Resolution must be between ${min}x${min} and ${max}x${max}.`);
+      setAvatarFile(null);
+      return;
+    }
+
+    setAvatarError('');
+    setAvatarFile(file);
+    setAvatarPreviewUrl(previewObjectUrl);
+    setIsEditing(true);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreviewUrl && avatarPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(avatarPreviewUrl);
+      }
+    };
+  }, [avatarPreviewUrl]);
 
   const handleCancel = () => {
     hydrateFromMember(currentMember);
@@ -130,18 +205,25 @@ export default function ProfileManagement({ currentMember, loading, onUpdateProf
         </div>
 
         <div>
-          <label className="text-xs font-semibold text-[#3d403a] block mb-1">Profile Image URL</label>
-          <input
-            type="url"
-            required
-            value={avatar}
-            onChange={e => {
-              setIsEditing(true);
-              setAvatar(e.target.value);
-            }}
-            className="w-full text-xs bg-[#fdfcf8] border border-[#e2dfd2] rounded-xl px-3 py-2 text-[#3d403a]"
-            disabled={loading}
-          />
+          <label className="text-xs font-semibold text-[#3d403a] block mb-1">Profile Image</label>
+          <div className="flex items-center gap-3">
+            <img
+              src={avatarPreviewUrl || avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'}
+              alt="Profile preview"
+              className="w-14 h-14 rounded-xl object-cover border border-[#e2dfd2]"
+            />
+            <div className="flex-1">
+              <input
+                type="file"
+                accept="image/png,image/jpeg"
+                onChange={handleAvatarFileChange}
+                className="w-full text-xs bg-[#fdfcf8] border border-[#e2dfd2] rounded-xl px-3 py-2 text-[#3d403a]"
+                disabled={loading}
+              />
+              <span className="text-[10px] text-[#7a7d75] mt-1 block">PNG/JPEG only, max 5MB, resolution 128-2048px.</span>
+              {avatarError && <span className="text-[10px] text-red-600 mt-1 block">{avatarError}</span>}
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -218,7 +300,7 @@ export default function ProfileManagement({ currentMember, loading, onUpdateProf
           </button>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || Boolean(avatarError)}
             className="w-1/2 py-2.5 bg-[#5a6e53] hover:opacity-90 text-white text-xs font-bold rounded-xl transition-all disabled:opacity-60 cursor-pointer"
           >
             Save Profile

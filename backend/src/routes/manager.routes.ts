@@ -24,6 +24,7 @@ import { getProjects } from "../controllers/project.controller.js";
 import { getWorkLogs } from "../controllers/worklog.controller.js";
 import { getAttendance } from "../controllers/attendance.controller.js";
 import { requireAuth, requireRole } from "../middleware/auth.middleware.js";
+import { handleAvatarUpload } from "../middleware/upload.middleware.js";
 
 const router = Router();
 
@@ -48,7 +49,7 @@ router.post("/task/subtasks", updateTaskSubtasks);
 router.post("/project", createProject);
 router.post("/project/delete", deleteProject);
 router.post("/update-role", updateRole);
-router.post("/profile", updateProfile);
+router.post("/profile", handleAvatarUpload, updateProfile);
 router.post("/password-reset/generate", managerGeneratePasswordReset);
 router.post("/message", sendMessage);
 

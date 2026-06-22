@@ -19,6 +19,7 @@ import { getProjects } from "../controllers/project.controller.js";
 import { getWorkLogs } from "../controllers/worklog.controller.js";
 import { getAttendance } from "../controllers/attendance.controller.js";
 import { requireAuth, requireRole } from "../middleware/auth.middleware.js";
+import { handleAvatarUpload } from "../middleware/upload.middleware.js";
 
 const router = Router();
 
@@ -39,7 +40,7 @@ router.post("/send-email", sendEmail);
 router.post("/task/update", updateTask);
 router.post("/task/comment", addTaskComment);
 router.post("/task/subtasks", updateTaskSubtasks);
-router.post("/profile", updateProfile);
+router.post("/profile", handleAvatarUpload, updateProfile);
 router.post("/message", sendMessage);
 
 export default router;
