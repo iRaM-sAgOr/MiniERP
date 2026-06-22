@@ -1,11 +1,17 @@
 import { createAuthToken, sanitizeMember } from "../middleware/auth.middleware.js";
-import { ErpRepository } from "../repositories/erp.repository.js";
+import { MemberRepository } from "../repositories/member.repository.js";
+import { PunchRepository } from "../repositories/punch.repository.js";
+import { WorkLogRepository } from "../repositories/worklog.repository.js";
+import { TaskRepository } from "../repositories/task.repository.js";
+import { ProjectRepository } from "../repositories/project.repository.js";
+import { SentEmailRepository } from "../repositories/sent-email.repository.js";
 import { MemberService } from "./member.service.js";
 import { PunchService } from "./punch.service.js";
 import { WorkLogService } from "./worklog.service.js";
 import { TaskService } from "./task.service.js";
 import { ProjectService } from "./project.service.js";
 import { MessageService } from "./message.service.js";
+import { SentEmailService } from "./sent-email.service.js";
 import { emitDirectMessage } from "../realtime/chat.gateway.js";
 
 type StateMember = {
@@ -39,17 +45,17 @@ const STATE_SCOPE_LIMIT = 5;
 const applyStateScopeLimit = <T>(items: T[], max = STATE_SCOPE_LIMIT) => items.slice(0, Math.max(0, max));
 
 const buildCommonState = async (requesterId?: string | null): Promise<CommonState> => {
-  const requester = requesterId ? await ErpRepository.findRequesterById(requesterId) : null;
+  const requester = requesterId ? await MemberRepository.findRequesterById(requesterId) : null;
   const isManager = (requester?.roleType || "").toLowerCase() === "manager";
 
   const [members, punches, worklogs, tasks, messages, projects, sentEmailsLog] = await Promise.all([
-    ErpRepository.findStateMembers(),
-    ErpRepository.findPunches(),
-    ErpRepository.findWorkLogs(),
-    ErpRepository.findTasks(),
-    ErpRepository.findMessages(),
-    ErpRepository.findProjects(),
-    ErpRepository.findSentEmails(),
+    MemberRepository.findStateMembers(),
+    PunchRepository.findAll(),
+    WorkLogRepository.findAll(),
+    TaskRepository.findAll(),
+    MessageService.findAllMessages(),
+    ProjectRepository.findAll(),
+    SentEmailRepository.findAll(),
   ]);
 
   const safeMembers = members as StateMember[];
@@ -120,7 +126,7 @@ const buildManagerState = async (requesterId?: string | null) => {
 
 const buildEngineerState = async (requesterId?: string | null) => {
   const commonState = await buildCommonState(requesterId);
-  const allTasks = await ErpRepository.findTasks();
+  const allTasks = await TaskRepository.findAll();
   const todayStr = new Date().toISOString().split("T")[0];
   const myMember = commonState.members.find(member => member.id === requesterId) || null;
   const myWorklogs = commonState.worklogs.filter(worklog => worklog.userId === requesterId);
@@ -240,7 +246,7 @@ const buildEngineerState = async (requesterId?: string | null) => {
 };
 
 const buildStateForRequester = async (requesterId?: string | null) => {
-  const requester = requesterId ? await ErpRepository.findRequesterById(requesterId) : null;
+  const requester = requesterId ? await MemberRepository.findRequesterById(requesterId) : null;
   if ((requester?.roleType || "").toLowerCase() === "manager") {
     return buildManagerState(requesterId);
   }
@@ -285,37 +291,8 @@ export class ErpService {
   }
 
   static async sendEmail(worklogId: string | undefined, customSubject: string, customBody: string, recipientId: string | undefined, requesterId?: string | null) {
-    const worklog = worklogId ? await ErpRepository.findWorkLogById(worklogId) : null;
-    if (worklogId && !worklog) {
-      throw new Error("Work log not found.");
-    }
-
-    const dispatchSubject = (customSubject || worklog?.emailSubject || `Daily Work Report${worklog ? ` - ${worklog.date}` : ""}`).trim();
-    const dispatchBody = (customBody || worklog?.emailDraft || "").trim();
-    const isAllRecipients = recipientId === "ALL";
-    const selectedRecipient = !isAllRecipients && recipientId ? await ErpRepository.findMemberById(recipientId) : null;
-
-    if (!isAllRecipients && recipientId && !selectedRecipient) {
-      throw new Error("Recipient not found.");
-    }
-
-    const receiverName = isAllRecipients ? "All Members" : (selectedRecipient?.name || "Selected User");
-    const receiverEmail = isAllRecipients ? "all@minierp.local" : (selectedRecipient?.email || "selected.user@minierp.local");
-
-    if (worklog) {
-      await ErpRepository.updateWorkLogDispatch(worklog.id, dispatchSubject, dispatchBody);
-    }
-    await ErpRepository.createSentEmailLog({
-      id: "email_" + Math.random().toString(36).substr(2, 9),
-      senderId: worklog?.userId || requesterId || "system",
-      subject: dispatchSubject,
-      receiverName,
-      receiverEmail,
-      body: dispatchBody,
-      timestamp: new Date().toISOString(),
-    });
-
-    return buildStateForRequester(requesterId || worklog?.userId || null);
+    const { senderId } = await SentEmailService.sendEmail(worklogId, customSubject, customBody, recipientId, requesterId);
+    return buildStateForRequester(requesterId || senderId || null);
   }
 
   static async createTask(taskData: any, requesterId?: string | null) {
@@ -328,7 +305,7 @@ export class ErpService {
 
   static async updateTask(taskId: string, actorId: string, status: string | undefined, details: Record<string, any>, requesterId?: string | null) {
     const actorIdFromToken = requesterId || actorId;
-    const actor = await ErpRepository.findMemberById(actorIdFromToken);
+    const actor = await MemberRepository.findById(actorIdFromToken);
     const actorName = actor ? actor.name : "System";
 
     if (status !== undefined && Object.keys(details).length === 0) {
@@ -346,7 +323,7 @@ export class ErpService {
 
   static async addTaskComment(taskId: string, authorId: string, text: string, requesterId?: string | null) {
     const authorIdFromToken = requesterId || authorId;
-    const author = await ErpRepository.findMemberById(authorIdFromToken);
+    const author = await MemberRepository.findById(authorIdFromToken);
     const authorName = author ? author.name : "Anonymous";
     const authorAvatar = author ? author.avatar : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200";
 
@@ -356,7 +333,7 @@ export class ErpService {
 
   static async updateTaskSubtasks(taskId: string, subtasks: Array<{ id: string; title: string; isCompleted: boolean }>, actorId: string, requesterId?: string | null) {
     const actorIdFromToken = requesterId || actorId;
-    const actor = await ErpRepository.findMemberById(actorIdFromToken);
+    const actor = await MemberRepository.findById(actorIdFromToken);
     const actorName = actor ? actor.name : "System";
 
     await TaskService.updateSubtasks(taskId, actorIdFromToken, actorName, subtasks);
@@ -407,47 +384,5 @@ export class ErpService {
     const message = await MessageService.createDirectMessage(requesterId || senderId, receiverId, text);
     emitDirectMessage(message);
     return buildStateForRequester(requesterId || senderId);
-  }
-
-  static async getVisibleMessagesForRequester(requesterId: string) {
-    if (!requesterId) {
-      return [];
-    }
-
-    const allMessages = await ErpRepository.findMessages();
-    return allMessages
-      .filter(message => message.channel === "general" || message.senderId === requesterId || message.receiverId === requesterId)
-      .map(message => ({
-        ...message,
-        text: message.text || message.content || "",
-        content: message.content || message.text || "",
-      }));
-  }
-
-  static async getConversationMessages(requesterId: string, contactId: string) {
-    const visibleMessages = await this.getVisibleMessagesForRequester(requesterId);
-    return visibleMessages.filter(
-      message =>
-        (message.senderId === requesterId && message.receiverId === contactId) ||
-        (message.senderId === contactId && message.receiverId === requesterId)
-    );
-  }
-
-  static async getVisibleSentEmailLogs(requesterId: string) {
-    const requester = await ErpRepository.findRequesterById(requesterId);
-    if (!requester) {
-      return { logs: [], requester: null };
-    }
-
-    const isManager = (requester.roleType || "").toLowerCase() === "manager";
-    const sentEmailsLog = await ErpRepository.findSentEmails();
-
-    const logs = isManager
-      ? sentEmailsLog
-      : sentEmailsLog.filter(
-          log => log.senderId === requesterId || log.receiverEmail === requester.email || log.receiverEmail === "all@minierp.local"
-        );
-
-    return { logs, requester };
   }
 }

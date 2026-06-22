@@ -2,11 +2,11 @@ import { MessageRepository } from "../repositories/message.repository.js";
 import { MemberRepository } from "../repositories/member.repository.js";
 
 export class MessageService {
-  static async getAllMessages() {
+  static async findAllMessages() {
     return MessageRepository.findAll();
   }
 
-  static async getVisibleMessages(requesterId?: string | null) {
+  static async getVisibleMessagesForRequester(requesterId: string) {
     if (!requesterId) {
       return [];
     }
@@ -26,27 +26,61 @@ export class MessageService {
       }));
   }
 
-  static async createMessage(senderId: string, senderName: string, senderAvatar: string, content: string, channel: string) {
-    const messageId = "msg_" + Math.random().toString(36).substr(2, 9);
-    
-    return MessageRepository.create({
-      id: messageId,
-      senderId,
-      senderName,
-      senderAvatar,
-      content,
-      channel: channel || "general",
-      timestamp: new Date().toISOString(),
-    });
+  static async getConversationMessages(requesterId: string, contactId: string) {
+    const visibleMessages = await this.getVisibleMessagesForRequester(requesterId);
+    return visibleMessages.filter(
+      message =>
+        (message.senderId === requesterId && message.receiverId === contactId) ||
+        (message.senderId === contactId && message.receiverId === requesterId)
+    );
+  }
+
+  static async getMessageContacts(requesterId: string) {
+    const messages = await this.getVisibleMessagesForRequester(requesterId);
+    const contactsMap = new Map<
+      string,
+      {
+        contactId: string;
+        contactName: string;
+        contactAvatar: string;
+        lastMessageAt: string;
+        lastMessagePreview: string;
+      }
+    >();
+
+    for (const message of messages) {
+      const isSender = message.senderId === requesterId;
+      const contactId = isSender ? message.receiverId : message.senderId;
+      if (!contactId) {
+        continue;
+      }
+
+      const contactName = isSender ? (message.receiverName || "Unknown") : (message.senderName || "Unknown");
+      const contactAvatar = isSender ? (message.receiverAvatar || "") : (message.senderAvatar || "");
+      const content = (message.text || message.content || "").trim();
+      const current = contactsMap.get(contactId);
+
+      if (!current || current.lastMessageAt < message.timestamp) {
+        contactsMap.set(contactId, {
+          contactId,
+          contactName,
+          contactAvatar,
+          lastMessageAt: message.timestamp,
+          lastMessagePreview: content,
+        });
+      }
+    }
+
+    return Array.from(contactsMap.values()).sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
   }
 
   static async createDirectMessage(senderId: string, receiverId: string, text: string) {
-    const sender = await MessageRepository.findMemberById(senderId);
+    const sender = await MemberRepository.findById(senderId);
     if (!sender) {
       throw new Error("Sender profile not found.");
     }
 
-    const receiver = await MessageRepository.findMemberById(receiverId);
+    const receiver = await MemberRepository.findById(receiverId);
     if (!receiver) {
       throw new Error("Receiver profile not found.");
     }

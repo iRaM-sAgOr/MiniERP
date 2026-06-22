@@ -9,6 +9,33 @@ export class MemberRepository {
     return prisma.member.findUnique({ where: { id } });
   }
 
+  static async findRequesterById(id: string) {
+    return prisma.member.findUnique({
+      where: { id },
+      select: { id: true, roleType: true, email: true },
+    });
+  }
+
+  static async findStateMembers() {
+    return prisma.member.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        roleType: true,
+        avatar: true,
+        department: true,
+        punchStatus: true,
+        lastPunchTime: true,
+        isTL: true,
+        tlId: true,
+        agreementHours: true,
+        breakDay: true,
+      },
+    });
+  }
+
   static async findByEmail(email: string) {
     return prisma.member.findUnique({ where: { email } });
   }

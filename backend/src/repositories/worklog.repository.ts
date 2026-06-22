@@ -18,6 +18,21 @@ export class WorkLogRepository {
     });
   }
 
+  static async findById(id: string) {
+    return prisma.workLog.findUnique({ where: { id } });
+  }
+
+  static async updateDispatch(worklogId: string, emailSubject: string, emailDraft: string) {
+    return prisma.workLog.update({
+      where: { id: worklogId },
+      data: {
+        sentToTl: true,
+        emailSubject,
+        emailDraft,
+      },
+    });
+  }
+
   static async create(logData: {
     id: string;
     userId: string;
