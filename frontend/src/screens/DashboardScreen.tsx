@@ -170,9 +170,9 @@ export default function DashboardScreen(props: DashboardScreenProps) {
       )}
 
       {/* Header */}
-      <header className="bg-[#f4f1e8] border-b border-[#e2dfd2] py-3.5 px-6 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-2.5">
+      <header className="bg-[#f4f1e8] border-b border-[#e2dfd2] py-3.5 px-3 sm:px-6 sticky top-0 z-40 shadow-sm">
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3">
+          <div className="flex items-center gap-2.5 justify-center lg:justify-start">
             <img src={aiLogo} alt="AI Solution USA Logo" className="w-10 h-10 rounded-xl object-contain border border-[#e2dfd2] bg-white pointer-events-none p-0.5" referrerPolicy="no-referrer" />
             <div>
               <h1 className="text-base font-bold text-[#2d3a2a] font-serif uppercase tracking-wider leading-none">AI Solution USA</h1>
@@ -180,25 +180,25 @@ export default function DashboardScreen(props: DashboardScreenProps) {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="w-full lg:w-auto flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
             {/* Acting as selector */}
-            <div className="flex items-center gap-2 bg-white border border-[#e2dfd2] rounded-xl px-3 py-1.5">
+            <div className="w-full sm:w-auto flex items-center gap-2 bg-white border border-[#e2dfd2] rounded-xl px-3 py-1.5 min-h-9">
               <span className="text-[10px] uppercase font-bold text-[#5a6e53] font-mono">Acting As:</span>
               {members.length > 0 ? (
                 authRoleType === 'Manager' && managerViewMode === 'manager' ? (
-                  <select className="bg-transparent border-none text-xs font-bold text-[#3d403a] focus:outline-none cursor-pointer py-0 pl-0 pr-6" value={currentMemberId} onChange={e => handleProfileSwitch(e.target.value)} disabled={dataLoading}>
+                  <select className="bg-transparent border-none text-xs font-bold text-[#3d403a] focus:outline-none cursor-pointer py-0 pl-0 pr-6 max-w-[190px] truncate" value={currentMemberId} onChange={e => handleProfileSwitch(e.target.value)} disabled={dataLoading}>
                     {members.map(m => <option key={m.id} value={m.id}>{m.name} ({m.role})</option>)}
                   </select>
                 ) : (
-                  <span className="text-xs font-bold text-[#3d403a] select-none">{currentMember.name} ({currentMember.role})</span>
+                  <span className="text-xs font-bold text-[#3d403a] select-none truncate max-w-[190px]">{currentMember.name} ({currentMember.role})</span>
                 )
               ) : (
                 <span className="text-xs text-slate-400 font-bold">Loading roster...</span>
               )}
             </div>
 
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <button onClick={() => setCurrentScreen('home')} className="flex items-center gap-1.5 px-3 py-1.5 border border-[#e2dfd2] bg-white hover:bg-[#f4f1e8] text-[#5a6e53] rounded-xl text-xs font-bold cursor-pointer">
+            <div className="w-full sm:w-auto grid grid-cols-2 sm:flex items-center gap-1.5">
+              <button onClick={() => setCurrentScreen('home')} className="flex items-center justify-center gap-1.5 px-3 py-1.5 border border-[#e2dfd2] bg-white hover:bg-[#f4f1e8] text-[#5a6e53] rounded-xl text-xs font-bold cursor-pointer min-h-9">
                 <HelpCircle className="w-3.5 h-3.5" />
                 Home
               </button>
@@ -209,21 +209,21 @@ export default function DashboardScreen(props: DashboardScreenProps) {
                     setManagerViewMode(next);
                     if (next === 'engineer' && authMemberId) { setCurrentMemberId(authMemberId); setShowRegForm(false); }
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-xl text-xs font-bold cursor-pointer ${managerViewMode === 'engineer' ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}
+                  className={`flex items-center justify-center gap-1.5 px-3 py-1.5 border rounded-xl text-xs font-bold cursor-pointer min-h-9 ${managerViewMode === 'engineer' ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}
                 >
                   {managerViewMode === 'engineer' ? '👷 Engineer View' : '📊 Manager View'}
                 </button>
               )}
               {authRoleType === 'Manager' && managerViewMode === 'manager' && (
-                <button onClick={() => setShowRegForm(!showRegForm)} className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-xl text-xs font-bold cursor-pointer ${showRegForm ? 'bg-[#5a6e53] text-white border-[#5a6e53]' : 'bg-[#d4a373] hover:opacity-90 text-white border-[#d4a373]'}`}>
+                <button onClick={() => setShowRegForm(!showRegForm)} className={`flex items-center justify-center gap-1.5 px-3 py-1.5 border rounded-xl text-xs font-bold cursor-pointer min-h-9 ${showRegForm ? 'bg-[#5a6e53] text-white border-[#5a6e53]' : 'bg-[#d4a373] hover:opacity-90 text-white border-[#d4a373]'}`}>
                   <UserPlus className="w-3.5 h-3.5" />
                   {showRegForm ? 'Close Registration' : 'Register Employee'}
                 </button>
               )}
-              <button onClick={refetchAll} disabled={dataLoading} className="p-2 border border-[#e2dfd2] bg-white hover:bg-[#f4f1e8] text-[#5a6e53] rounded-xl cursor-pointer">
+              <button onClick={refetchAll} disabled={dataLoading} className="flex items-center justify-center p-2 border border-[#e2dfd2] bg-white hover:bg-[#f4f1e8] text-[#5a6e53] rounded-xl cursor-pointer min-h-9">
                 <RefreshCw className={`w-3.5 h-3.5 ${dataLoading ? 'animate-spin text-slate-400' : ''}`} />
               </button>
-              <button onClick={handleLogout} className="flex items-center gap-1.5 px-3 py-1.5 border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold cursor-pointer">
+              <button onClick={handleLogout} className="flex items-center justify-center gap-1.5 px-3 py-1.5 border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold cursor-pointer min-h-9">
                 <LogOut className="w-3.5 h-3.5" />
                 Log Out
               </button>
