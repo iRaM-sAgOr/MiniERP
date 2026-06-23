@@ -14,32 +14,45 @@ export default function EmailDraftCard({ worklog, currentMember, members, onSend
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [recipientId, setRecipientId] = useState('ALL');
-  const isSent = Boolean(worklog?.sentToTl);
+  // wasSent tracks optimistic dispatched state for the current compose session.
+  // Cleared when the active worklog changes (new day / new log).
+  const [wasSent, setWasSent] = useState(false);
+  const [sentAt, setSentAt] = useState<string | null>(null);
+  const [sentToLabel, setSentToLabel] = useState('');
+  const isSent = Boolean(worklog?.sentToTl) || wasSent;
 
   useEffect(() => {
-    if (worklog) {
+    // Load draft content when worklog id changes (new or different worklog)
+    if (worklog && !worklog.sentToTl) {
       setSubject(worklog.emailSubject || `Daily Activity Report - (${worklog.date})`);
       setBody(worklog.emailDraft || '');
       setRecipientId('ALL');
     }
+    // Reset optimistic sent state when worklog changes
+    setWasSent(false);
+    setSentAt(null);
+    setSentToLabel('');
   }, [worklog?.id]);
 
-  useEffect(() => {
-    if (isSent) {
-      setSubject('');
-      setBody('');
-      setRecipientId('ALL');
-    }
-  }, [isSent]);
-
   const handleSend = async () => {
+    const label = recipientLabel;
     await onSendEmail(worklog?.id, subject, body, recipientId);
+    // Clear form and mark as sent immediately after successful dispatch
+    setSubject('');
+    setBody('');
+    setRecipientId('ALL');
+    setWasSent(true);
+    setSentAt(new Date().toISOString());
+    setSentToLabel(label);
   };
 
   const handleCancel = () => {
     setSubject('');
     setBody('');
     setRecipientId('ALL');
+    setWasSent(false);
+    setSentAt(null);
+    setSentToLabel('');
   };
 
   const selectedRecipient = recipientId === 'ALL' ? null : members.find(member => member.id === recipientId) || null;
@@ -74,11 +87,13 @@ export default function EmailDraftCard({ worklog, currentMember, members, onSend
           className="w-full text-xs font-bold px-3.5 py-2.5 bg-[#fdfcf8] border border-[#e2dfd2] rounded-xl text-[#3d403a] focus:outline-none focus:border-[#5a6e53]/70 focus:ring-1 focus:ring-[#5a6e53]/70 transition-all duration-200 disabled:bg-[#f4f1e8]/30 disabled:text-[#7a7d75]"
         >
           <option value="ALL">ALL members of this organization</option>
-          {members.map(member => (
-            <option key={member.id} value={member.id}>
-              {member.name} ({member.roleType})
-            </option>
-          ))}
+          {members
+            .filter(member => member.id !== currentMember.id)
+            .map(member => (
+              <option key={member.id} value={member.id}>
+                {member.name} — {member.role} ({member.roleType})
+              </option>
+            ))}
         </select>
       </div>
 
@@ -111,10 +126,14 @@ export default function EmailDraftCard({ worklog, currentMember, members, onSend
       </div>
 
       {/* Action button */}
-      {isSent && worklog ? (
+      {isSent ? (
         <div className="p-3 bg-emerald-50/50 border border-emerald-100 rounded-xl flex items-center gap-2.5 text-emerald-800 text-xs font-medium">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>Mail sent successfully to {recipientLabel} at {new Date(worklog.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.</span>
+          <span>
+            Mail dispatched to <strong>{sentToLabel || recipientLabel}</strong>
+            {sentAt ? ` at ${new Date(sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+            .
+          </span>
         </div>
       ) : (
         <div className="flex gap-2">
