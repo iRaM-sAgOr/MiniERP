@@ -14,6 +14,17 @@
     "migrate:create": "bash scripts/create-migration.sh",
     "prisma:seed": "tsx src/db/seed.ts"
   },
+  "scriptDescriptions": {
+    "dev": "Applies committed Prisma migrations, then starts the backend API without Vite middleware.",
+    "dev:fullstack": "Applies committed Prisma migrations, then starts the backend in fullstack mode with default middleware behavior.",
+    "start": "Production-style backend start: applies committed Prisma migrations first, then boots the API server.",
+    "prisma:generate": "Regenerates the Prisma client from prisma/schema.postgres.prisma.",
+    "prisma:migrate": "Runs Prisma migrate dev for interactive local schema development; not recommended against the shared production database.",
+    "prisma:deploy": "Applies committed Prisma migrations to the configured database.",
+    "migrate:deploy": "Explicit Prisma migrate deploy command using prisma/schema.postgres.prisma.",
+    "migrate:create": "Generates a timestamped migration folder by diffing committed migrations against the current Prisma schema.",
+    "prisma:seed": "Runs the backend seed script to insert or refresh baseline data."
+  },
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "bcryptjs": "^3.0.3",
