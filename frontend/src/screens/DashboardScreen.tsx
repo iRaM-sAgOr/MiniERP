@@ -26,6 +26,7 @@ interface DashboardScreenProps {
   messages: DirectMessage[];
   messageContacts: MessageContact[];
   projects: EnterpriseProject[];
+  managerProjects: EnterpriseProject[];
 
   // Auth
   authRoleType: string;
@@ -77,6 +78,16 @@ interface DashboardScreenProps {
   handleSendEmail: (worklogId: string | undefined, subject: string, body: string, recipientId: string) => Promise<void>;
   handleAssignTask: (taskData: any) => Promise<void>;
   handleCreateProject: (name: string, description: string) => Promise<void>;
+  handleUpdateProject: (projectId: string, payload: {
+    name?: string;
+    description?: string;
+    githubRepoUrl?: string;
+    notionUrl?: string;
+    milestonePlan?: string;
+    standardChecklist?: string;
+    releasePlanUrl?: string;
+    status?: 'Planning' | 'Active' | 'Blocked' | 'Completed' | 'Inactive';
+  }) => Promise<void>;
   handleDeleteProject: (id: string) => Promise<void>;
   handleUpdateTaskStatus: (taskId: string, status: 'Pending' | 'In Progress' | 'Completed') => Promise<void>;
   handleAddTaskComment: (taskId: string, text: string) => Promise<void>;
@@ -98,7 +109,7 @@ interface DashboardScreenProps {
 
 export default function DashboardScreen(props: DashboardScreenProps) {
   const {
-    members, punches, worklogs, tasks, sentEmailsLog, messages, messageContacts, projects,
+    members, punches, worklogs, tasks, sentEmailsLog, messages, messageContacts, projects, managerProjects,
     authRoleType, authMemberId, currentMemberId, managerViewMode,
     currentMember, effectiveMember, effectiveRoleType,
     teamLeads, todayStr, attendance, activeWorklog,
@@ -109,7 +120,7 @@ export default function DashboardScreen(props: DashboardScreenProps) {
     setActiveTab, setCurrentMemberId, setCurrentScreen, setManagerViewMode, setMessages,
     socketRef, triggerAlert,
     handleProfileSwitch, handlePunch, handleAppendWorklogItem, handleDeleteWorklogItem, handleSendEmail,
-    handleAssignTask, handleCreateProject, handleDeleteProject,
+    handleAssignTask, handleCreateProject, handleUpdateProject, handleDeleteProject,
     handleUpdateTaskStatus, handleAddTaskComment, handleUpdateTaskSubtasks,
     handleUpdateTaskDetails, handleRegisterUser, handleUpdateUserRole,
     handleUpdateProfile, handleManagerGeneratePasswordReset,
@@ -361,8 +372,10 @@ export default function DashboardScreen(props: DashboardScreenProps) {
                   currentMember={effectiveMember}
                   members={members}
                   projects={projects}
+                  managerProjects={managerProjects}
                   onAssignTask={handleAssignTask}
                   onCreateProject={handleCreateProject}
+                  onUpdateProject={handleUpdateProject}
                   onDeleteProject={handleDeleteProject}
                   loading={taskLoading || projectLoading}
                 />

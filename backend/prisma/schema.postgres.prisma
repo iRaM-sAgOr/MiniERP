@@ -47,11 +47,18 @@ model PasswordResetToken {
 }
 
 model Project {
-  id          String   @id
-  name        String
-  description String?
-  createdAt   String
-  createdBy   String
+  id                   String   @id
+  name                 String
+  description          String?
+  githubRepoUrl        String?
+  notionUrl            String?
+  milestonePlan        String?
+  standardChecklist    String?
+  releasePlanUrl       String?
+  status               String?
+  createdAt            String
+  updatedAt            String?
+  createdBy            String
 }
 
 model Punch {

@@ -19,6 +19,7 @@ import {
   getConversationMessages,
   getMessageContacts,
   getSentEmailLogs,
+  updateProject,
 } from "../controllers/erp.controller.js";
 import { getProjects } from "../controllers/project.controller.js";
 import { getWorkLogs } from "../controllers/worklog.controller.js";
@@ -47,6 +48,7 @@ router.post("/task/update", updateTask);
 router.post("/task/comment", addTaskComment);
 router.post("/task/subtasks", updateTaskSubtasks);
 router.post("/project", createProject);
+router.post("/project/update", updateProject);
 router.post("/project/delete", deleteProject);
 router.post("/update-role", updateRole);
 router.post("/profile", handleAvatarUpload, updateProfile);

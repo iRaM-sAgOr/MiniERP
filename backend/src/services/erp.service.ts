@@ -350,6 +350,25 @@ export class ErpService {
     return buildManagerState(requesterId || deletedBy);
   }
 
+  static async updateProject(
+    projectId: string,
+    details: {
+      name?: string;
+      description?: string;
+      githubRepoUrl?: string;
+      notionUrl?: string;
+      milestonePlan?: string;
+      standardChecklist?: string;
+      releasePlanUrl?: string;
+      status?: "Planning" | "Active" | "Blocked" | "Completed" | "Inactive";
+    },
+    updatedBy: string,
+    requesterId?: string | null
+  ) {
+    await ProjectService.updateProjectDetails(projectId, requesterId || updatedBy, details);
+    return buildManagerState(requesterId || updatedBy);
+  }
+
   static async updateRole(userId: string, roleType: string, requesterId?: string | null) {
     const member = await MemberService.updateRoleType(userId, roleType as "Engineer" | "Manager");
     const state = await buildManagerState(requesterId || userId);

@@ -4,12 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "VITE_MIDDLEWARE=false tsx server.ts",
-    "dev:fullstack": "tsx server.ts",
-    "start": "VITE_MIDDLEWARE=false tsx server.ts",
+    "dev": "npm run migrate:deploy && VITE_MIDDLEWARE=false tsx server.ts",
+    "dev:fullstack": "npm run migrate:deploy && tsx server.ts",
+    "start": "npm run migrate:deploy && VITE_MIDDLEWARE=false tsx server.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:deploy": "prisma migrate deploy",
+    "migrate:deploy": "prisma migrate deploy --schema prisma/schema.postgres.prisma",
+    "migrate:create": "bash scripts/create-migration.sh",
     "prisma:seed": "tsx src/db/seed.ts"
   },
   "dependencies": {

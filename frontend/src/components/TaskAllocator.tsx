@@ -6,6 +6,7 @@ interface TaskAllocatorProps {
   currentMember: TeamMember;
   members: TeamMember[];
   projects?: EnterpriseProject[];
+  managerProjects?: EnterpriseProject[];
   onAssignTask: (taskData: {
     title: string;
     description: string;
@@ -18,6 +19,16 @@ interface TaskAllocatorProps {
     endDate: string;
   }) => Promise<void>;
   onCreateProject?: (name: string, description: string) => Promise<void>;
+  onUpdateProject?: (projectId: string, payload: {
+    name?: string;
+    description?: string;
+    githubRepoUrl?: string;
+    notionUrl?: string;
+    milestonePlan?: string;
+    standardChecklist?: string;
+    releasePlanUrl?: string;
+    status?: 'Planning' | 'Active' | 'Blocked' | 'Completed' | 'Inactive';
+  }) => Promise<void>;
   onDeleteProject?: (projectId: string) => Promise<void>;
   loading: boolean;
 }
@@ -26,8 +37,10 @@ export default function TaskAllocator({
   currentMember,
   members,
   projects = [],
+  managerProjects = [],
   onAssignTask,
   onCreateProject,
+  onUpdateProject,
   onDeleteProject,
   loading
 }: TaskAllocatorProps) {
@@ -73,6 +86,36 @@ export default function TaskAllocator({
   const [newProjName, setNewProjName] = useState('');
   const [newProjDesc, setNewProjDesc] = useState('');
 
+  const registryProjects = isManager ? managerProjects : projects;
+
+  const selectedProjectDetails = registryProjects.find(project => project.name === selectedProject) || null;
+
+  const [projectStatus, setProjectStatus] = useState<'Planning' | 'Active' | 'Blocked' | 'Completed' | 'Inactive'>('Planning');
+  const [githubRepoUrl, setGithubRepoUrl] = useState('');
+  const [notionUrl, setNotionUrl] = useState('');
+  const [releasePlanUrl, setReleasePlanUrl] = useState('');
+  const [milestonePlan, setMilestonePlan] = useState('');
+  const [standardChecklist, setStandardChecklist] = useState('');
+
+  useEffect(() => {
+    if (!selectedProjectDetails) {
+      setProjectStatus('Planning');
+      setGithubRepoUrl('');
+      setNotionUrl('');
+      setReleasePlanUrl('');
+      setMilestonePlan('');
+      setStandardChecklist('');
+      return;
+    }
+
+    setProjectStatus((selectedProjectDetails.status as 'Planning' | 'Active' | 'Blocked' | 'Completed' | 'Inactive') || 'Planning');
+    setGithubRepoUrl(selectedProjectDetails.githubRepoUrl || '');
+    setNotionUrl(selectedProjectDetails.notionUrl || '');
+    setReleasePlanUrl(selectedProjectDetails.releasePlanUrl || '');
+    setMilestonePlan(selectedProjectDetails.milestonePlan || '');
+    setStandardChecklist(selectedProjectDetails.standardChecklist || '');
+  }, [selectedProjectDetails?.id]);
+
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !selectedProject) return;
@@ -109,6 +152,34 @@ export default function TaskAllocator({
     const confirmed = window.confirm(`Delete project \"${projectName}\"?`);
     if (!confirmed) return;
     await onDeleteProject(projectId);
+  };
+
+  const handleToggleProjectStatus = async (project: EnterpriseProject) => {
+    if (!isManager || !onUpdateProject) return;
+    const currentStatus = project.status || 'Planning';
+    const nextStatus: 'Planning' | 'Active' | 'Blocked' | 'Completed' | 'Inactive' =
+      currentStatus === 'Inactive' ? 'Active' : 'Inactive';
+
+    const confirmed = window.confirm(
+      `${nextStatus === 'Inactive' ? 'Mark' : 'Reactivate'} project "${project.name}" as ${nextStatus}?`
+    );
+    if (!confirmed) return;
+
+    await onUpdateProject(project.id, { status: nextStatus });
+  };
+
+  const handleUpdateProjectDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isManager || !onUpdateProject || !selectedProjectDetails) return;
+
+    await onUpdateProject(selectedProjectDetails.id, {
+      status: projectStatus,
+      githubRepoUrl,
+      notionUrl,
+      releasePlanUrl,
+      milestonePlan,
+      standardChecklist,
+    });
   };
 
   return (
@@ -292,7 +363,7 @@ export default function TaskAllocator({
           </button>
         </form>
 
-        {/* Manager/Lead Project Creator Panel */}
+        {/* Project metadata and lifecycle panel */}
         <div className="border-[#e2dfd2] lg:border-l lg:pl-8 space-y-4 text-left">
           <div className="p-4 bg-[#f4f1e8]/30 border border-[#e2dfd2] rounded-2xl">
             <div className="flex items-center gap-2 mb-3">
@@ -340,25 +411,123 @@ export default function TaskAllocator({
             )}
           </div>
 
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
-            <h4 className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider mb-2">Registered Projects ({projects.length})</h4>
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+            <h4 className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider">Project Information Hub</h4>
+
+            {registryProjects.length > 0 ? (
+              <>
+                <div>
+                  <label className="text-[10px] font-bold text-[#7a7d75] uppercase block mb-1">Selected Project</label>
+                  <select
+                    className="w-full text-xs bg-white border border-[#e2dfd2] rounded-xl px-2.5 py-1.5 text-[#3d403a] focus:outline-none"
+                    value={selectedProject}
+                    onChange={e => setSelectedProject(e.target.value)}
+                    disabled={loading}
+                  >
+                    {registryProjects.map(proj => (
+                      <option key={proj.id} value={proj.name}>
+                        {proj.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2 text-[11px] text-[#3d403a] bg-white border border-slate-200 rounded-xl p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold">Status</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-[#e2dfd2] bg-[#f4f1e8]">
+                      {selectedProjectDetails?.status || 'Planning'}
+                    </span>
+                  </div>
+                  {selectedProjectDetails?.description && <p className="text-[10px] text-[#7a7d75]">{selectedProjectDetails.description}</p>}
+                  <div className="grid grid-cols-1 gap-1 text-[10px]">
+                    <a href={selectedProjectDetails?.githubRepoUrl || '#'} target="_blank" rel="noreferrer" className={`truncate ${selectedProjectDetails?.githubRepoUrl ? 'text-blue-700 underline' : 'text-[#9aa09a] cursor-default pointer-events-none'}`}>GitHub Repository</a>
+                    <a href={selectedProjectDetails?.notionUrl || '#'} target="_blank" rel="noreferrer" className={`truncate ${selectedProjectDetails?.notionUrl ? 'text-blue-700 underline' : 'text-[#9aa09a] cursor-default pointer-events-none'}`}>Notion Workspace</a>
+                    <a href={selectedProjectDetails?.releasePlanUrl || '#'} target="_blank" rel="noreferrer" className={`truncate ${selectedProjectDetails?.releasePlanUrl ? 'text-blue-700 underline' : 'text-[#9aa09a] cursor-default pointer-events-none'}`}>Release Plan Document</a>
+                  </div>
+                  {selectedProjectDetails?.milestonePlan && (
+                    <div>
+                      <p className="font-semibold text-[10px] mb-1">Milestone Plan</p>
+                      <pre className="text-[10px] whitespace-pre-wrap bg-[#fdfcf8] border border-[#e2dfd2] rounded-lg p-2 max-h-24 overflow-y-auto">{selectedProjectDetails.milestonePlan}</pre>
+                    </div>
+                  )}
+                  {selectedProjectDetails?.standardChecklist && (
+                    <div>
+                      <p className="font-semibold text-[10px] mb-1">Standard Checklist</p>
+                      <pre className="text-[10px] whitespace-pre-wrap bg-[#fdfcf8] border border-[#e2dfd2] rounded-lg p-2 max-h-24 overflow-y-auto">{selectedProjectDetails.standardChecklist}</pre>
+                    </div>
+                  )}
+                </div>
+
+                {isManager && onUpdateProject && selectedProjectDetails && (
+                  <form onSubmit={handleUpdateProjectDetails} className="space-y-2 bg-white border border-[#e2dfd2] rounded-xl p-3">
+                    <h5 className="text-[10px] font-extrabold text-[#5a6e53] uppercase tracking-wider">Manager Edit Mode</h5>
+                    <select
+                      className="w-full text-xs bg-[#fdfcf8] border border-[#e2dfd2] rounded-lg px-2 py-1"
+                      value={projectStatus}
+                      onChange={e => setProjectStatus(e.target.value as 'Planning' | 'Active' | 'Blocked' | 'Completed' | 'Inactive')}
+                    >
+                      <option value="Planning">Planning</option>
+                      <option value="Active">Active</option>
+                      <option value="Blocked">Blocked</option>
+                      <option value="Completed">Completed</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                    <input type="url" placeholder="GitHub Repo URL" value={githubRepoUrl} onChange={e => setGithubRepoUrl(e.target.value)} className="w-full text-xs bg-[#fdfcf8] border border-[#e2dfd2] rounded-lg px-2 py-1" />
+                    <input type="url" placeholder="Notion URL" value={notionUrl} onChange={e => setNotionUrl(e.target.value)} className="w-full text-xs bg-[#fdfcf8] border border-[#e2dfd2] rounded-lg px-2 py-1" />
+                    <input type="url" placeholder="Release Plan URL" value={releasePlanUrl} onChange={e => setReleasePlanUrl(e.target.value)} className="w-full text-xs bg-[#fdfcf8] border border-[#e2dfd2] rounded-lg px-2 py-1" />
+                    <textarea rows={3} placeholder="Milestone Plan" value={milestonePlan} onChange={e => setMilestonePlan(e.target.value)} className="w-full text-xs bg-[#fdfcf8] border border-[#e2dfd2] rounded-lg px-2 py-1 resize-none" />
+                    <textarea rows={3} placeholder="Standard Checklist" value={standardChecklist} onChange={e => setStandardChecklist(e.target.value)} className="w-full text-xs bg-[#fdfcf8] border border-[#e2dfd2] rounded-lg px-2 py-1 resize-none" />
+                    <button type="submit" disabled={loading} className="w-full py-1.5 px-3 bg-[#5a6e53] hover:opacity-90 text-white text-[10px] font-extrabold uppercase rounded-xl disabled:opacity-50">
+                      Save Project Information
+                    </button>
+                  </form>
+                )}
+              </>
+            ) : (
+              <p className="text-[10px] text-[#7a7d75]">No projects found yet. Create one first to maintain repository links, milestones, checklist and release plan details.</p>
+            )}
+
             <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
-              {projects.map((proj) => (
+              {registryProjects.map((proj) => (
                 <div key={proj.id} className="text-left py-1.5 px-2.5 bg-white rounded-lg border border-slate-200 text-xs flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <span className="font-bold text-[#2d3a2a] block">📁 {proj.name}</span>
+                    <span className={`inline-block mt-0.5 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${
+                      (proj.status || 'Planning') === 'Inactive'
+                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    }`}>
+                      {proj.status || 'Planning'}
+                    </span>
                     {proj.description && <span className="text-[10px] text-[#7a7d75] block mt-0.5 max-w-[200px] truncate">{proj.description}</span>}
                   </div>
-                  {isManager && onDeleteProject && (
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteProject(proj.id, proj.name)}
-                      disabled={loading}
-                      className="shrink-0 text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-md border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 disabled:opacity-50"
-                    >
-                      Delete
-                    </button>
-                  )}
+                  <div className="shrink-0 flex items-center gap-1">
+                    {isManager && onUpdateProject && (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleProjectStatus(proj)}
+                        disabled={loading}
+                        className={`text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-md border disabled:opacity-50 ${
+                          (proj.status || 'Planning') === 'Inactive'
+                            ? 'border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                            : 'border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100'
+                        }`}
+                      >
+                        {(proj.status || 'Planning') === 'Inactive' ? 'Activate' : 'Inactivate'}
+                      </button>
+                    )}
+                    {isManager && onDeleteProject && (proj.status || 'Planning') !== 'Inactive' && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteProject(proj.id, proj.name)}
+                        disabled={loading}
+                        className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-md border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 disabled:opacity-50"
+                      >
+                        Inactivate
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

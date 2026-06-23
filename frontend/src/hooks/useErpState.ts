@@ -16,6 +16,7 @@ export interface ErpState {
   messages: DirectMessage[];
   messageContacts: MessageContact[];
   projects: EnterpriseProject[];
+  managerProjects: EnterpriseProject[];
   attendance: AttendanceData | null;
 
   // Auth
@@ -72,6 +73,16 @@ export interface ErpState {
     projectName?: string; estimatedHours?: number; startDate?: string; endDate?: string;
   }) => Promise<void>;
   handleCreateProject: (name: string, description: string) => Promise<void>;
+  handleUpdateProject: (projectId: string, payload: {
+    name?: string;
+    description?: string;
+    githubRepoUrl?: string;
+    notionUrl?: string;
+    milestonePlan?: string;
+    standardChecklist?: string;
+    releasePlanUrl?: string;
+    status?: 'Planning' | 'Active' | 'Blocked' | 'Completed' | 'Inactive';
+  }) => Promise<void>;
   handleDeleteProject: (projectId: string) => Promise<void>;
   handleUpdateTaskStatus: (taskId: string, status: 'Pending' | 'In Progress' | 'Completed') => Promise<void>;
   handleAddTaskComment: (taskId: string, text: string) => Promise<void>;
@@ -112,6 +123,7 @@ export function useErpState(): ErpState {
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [messageContacts, setMessageContacts] = useState<MessageContact[]>([]);
   const [projects, setProjects] = useState<EnterpriseProject[]>([]);
+  const [managerProjects, setManagerProjects] = useState<EnterpriseProject[]>([]);
   const [attendance, setAttendance] = useState<AttendanceData | null>(null);
 
   const [authToken, setAuthToken] = useState<string>(
@@ -288,6 +300,24 @@ export function useErpState(): ErpState {
     }
   }, [authToken, apiFetch]);
 
+  const fetchManagerProjects = useCallback(async () => {
+    if (!authToken) return;
+    if (authRoleType !== 'Manager') {
+      setManagerProjects([]);
+      return;
+    }
+
+    try {
+      const res = await apiFetch('/api/manager/projects?includeInactive=true');
+      if (res.ok) {
+        const data = await res.json();
+        setManagerProjects(data.projects || []);
+      }
+    } catch (err) {
+      console.error('Failed to query manager project list:', err);
+    }
+  }, [authToken, authRoleType, apiFetch]);
+
   const fetchAttendance = useCallback(async () => {
     if (!authToken) return;
     try {
@@ -326,8 +356,9 @@ export function useErpState(): ErpState {
     fetchMessageContacts();
     fetchSentEmailLogs();
     fetchProjects();
+    fetchManagerProjects();
     fetchAttendance();
-  }, [fetchState, fetchWorklogs, fetchMessageContacts, fetchSentEmailLogs, fetchProjects, fetchAttendance]);
+  }, [fetchState, fetchWorklogs, fetchMessageContacts, fetchSentEmailLogs, fetchProjects, fetchManagerProjects, fetchAttendance]);
 
   useEffect(() => { refetchAll(); }, [authToken]);
 
@@ -475,6 +506,38 @@ export function useErpState(): ErpState {
     }
   }, [apiFetch, currentMemberId, fetchProjects, triggerAlert]);
 
+  const handleUpdateProject = useCallback(async (projectId: string, payload: {
+    name?: string;
+    description?: string;
+    githubRepoUrl?: string;
+    notionUrl?: string;
+    milestonePlan?: string;
+    standardChecklist?: string;
+    releasePlanUrl?: string;
+    status?: 'Planning' | 'Active' | 'Blocked' | 'Completed' | 'Inactive';
+  }) => {
+    try {
+      setProjectLoading(true);
+      const res = await apiFetch('/api/manager/project/update', {
+        method: 'POST',
+        body: JSON.stringify({ projectId, updatedBy: currentMemberId, ...payload }),
+      });
+
+      if (res.ok) {
+        await fetchProjects();
+        await fetchManagerProjects();
+        triggerAlert('success', 'Project details updated successfully.');
+      } else {
+        const err = await res.json();
+        triggerAlert('error', err.error || 'Failed to update project details.');
+      }
+    } catch {
+      triggerAlert('error', 'Network failure updating project details.');
+    } finally {
+      setProjectLoading(false);
+    }
+  }, [apiFetch, currentMemberId, fetchProjects, fetchManagerProjects, triggerAlert]);
+
   const handleDeleteProject = useCallback(async (projectId: string) => {
     try {
       setProjectLoading(true);
@@ -484,17 +547,18 @@ export function useErpState(): ErpState {
       });
       if (res.ok) {
         await fetchProjects();
-        triggerAlert('success', 'Project deleted successfully.');
+        await fetchManagerProjects();
+        triggerAlert('success', 'Project moved to inactive successfully.');
       } else {
         const err = await res.json();
-        triggerAlert('error', err.error || 'Failed to delete project.');
+        triggerAlert('error', err.error || 'Failed to inactivate project.');
       }
     } catch {
-      triggerAlert('error', 'Network failure deleting project.');
+      triggerAlert('error', 'Network failure while inactivating project.');
     } finally {
       setProjectLoading(false);
     }
-  }, [apiFetch, currentMemberId, fetchProjects, triggerAlert]);
+  }, [apiFetch, currentMemberId, fetchProjects, fetchManagerProjects, triggerAlert]);
 
   const handleUpdateTaskStatus = useCallback(async (taskId: string, status: 'Pending' | 'In Progress' | 'Completed') => {
     try {
@@ -819,7 +883,7 @@ export function useErpState(): ErpState {
     : null;
 
   return {
-  members, punches, worklogs, tasks, sentEmailsLog, messages, messageContacts, projects, attendance,
+  members, punches, worklogs, tasks, sentEmailsLog, messages, messageContacts, projects, managerProjects, attendance,
   authToken, authRoleType, authMemberId, currentMemberId,
   dataLoading, punchLoading, logLoading, emailLoading,
   taskLoading, projectLoading, profileLoading, authLoading,
@@ -831,7 +895,7 @@ export function useErpState(): ErpState {
   setManagerViewMode, setActiveTab,
   triggerAlert, handleProfileSwitch,
     handlePunch, handleAppendWorklogItem, handleDeleteWorklogItem, handleSendEmail,
-  handleAssignTask, handleCreateProject, handleDeleteProject,
+    handleAssignTask, handleCreateProject, handleUpdateProject, handleDeleteProject,
   handleUpdateTaskStatus, handleAddTaskComment,
   handleUpdateTaskSubtasks, handleUpdateTaskDetails,
   handleRegisterUser, handleUpdateUserRole, handleUpdateProfile,

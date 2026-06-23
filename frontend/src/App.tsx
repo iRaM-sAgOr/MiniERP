@@ -237,6 +237,7 @@ function DashboardApp() {
       messages={erp.messages}
       messageContacts={erp.messageContacts}
       projects={erp.projects}
+      managerProjects={erp.managerProjects}
       authRoleType={erp.authRoleType}
       authMemberId={erp.authMemberId}
       currentMemberId={erp.currentMemberId}
@@ -276,6 +277,7 @@ function DashboardApp() {
       handleSendEmail={erp.handleSendEmail}
       handleAssignTask={erp.handleAssignTask}
       handleCreateProject={erp.handleCreateProject}
+      handleUpdateProject={erp.handleUpdateProject}
       handleDeleteProject={erp.handleDeleteProject}
       handleUpdateTaskStatus={erp.handleUpdateTaskStatus}
       handleAddTaskComment={erp.handleAddTaskComment}

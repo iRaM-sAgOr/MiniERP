@@ -179,6 +179,16 @@ export const deleteProject = async (req: Request, res: Response) => {
   }
 };
 
+export const updateProject = async (req: Request, res: Response) => {
+  try {
+    const { projectId, updatedBy, ...details } = req.body;
+    const state = await ErpService.updateProject(projectId, details, updatedBy, getRequestUserId(req));
+    res.json({ state });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
 export const updateRole = async (req: Request, res: Response) => {
   try {
     const { userId, roleType } = req.body;

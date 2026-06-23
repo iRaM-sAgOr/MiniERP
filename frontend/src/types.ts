@@ -40,7 +40,14 @@ export interface EnterpriseProject {
   id: string;
   name: string;
   description?: string;
+  githubRepoUrl?: string;
+  notionUrl?: string;
+  milestonePlan?: string;
+  standardChecklist?: string;
+  releasePlanUrl?: string;
+  status?: 'Planning' | 'Active' | 'Blocked' | 'Completed' | 'Inactive';
   createdAt: string;
+  updatedAt?: string;
   createdBy: string;
 }
 
