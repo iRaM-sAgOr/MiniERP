@@ -233,10 +233,14 @@ export default function AttendanceLog({ members, onFetchMonth, currentMember, is
 }
 
 function AttendanceRow({ row }: { row: DayAttendanceRow }) {
+  const isOngoing = !row.isCapped && !row.lastClockOut;
+
   return (
     <div className={`grid grid-cols-[80px_1fr_80px_80px_70px_80px_90px] gap-2 items-center px-3 py-2.5 rounded-xl border text-xs transition-colors ${
       row.isCapped
         ? 'bg-amber-50/50 border-amber-200/70'
+        : isOngoing
+        ? 'bg-blue-50/60 border-blue-200/70'
         : 'bg-[#fdfcf8] border-[#e2dfd2] hover:bg-[#f4f1e8]/30'
     }`}>
       {/* Date */}
@@ -253,8 +257,8 @@ function AttendanceRow({ row }: { row: DayAttendanceRow }) {
       <span className="font-mono text-[11px] text-[#3d403a] font-semibold">{fmtTime(row.firstPunchIn)}</span>
 
       {/* Last Out */}
-      <span className={`font-mono text-[11px] font-semibold ${row.isCapped ? 'text-amber-600' : 'text-[#3d403a]'}`}>
-        {row.isCapped ? '—' : fmtTime(row.lastClockOut)}
+      <span className={`font-mono text-[11px] font-semibold ${row.isCapped ? 'text-amber-600' : isOngoing ? 'text-blue-700' : 'text-[#3d403a]'}`}>
+        {row.lastClockOut ? fmtTime(row.lastClockOut) : '—'}
       </span>
 
       {/* Break */}
@@ -264,7 +268,7 @@ function AttendanceRow({ row }: { row: DayAttendanceRow }) {
 
       {/* Worked */}
       <span className={`font-mono text-[11px] font-bold ${
-        row.isCapped ? 'text-amber-700' : 'text-[#5a6e53]'
+        row.isCapped ? 'text-amber-700' : isOngoing ? 'text-blue-700' : 'text-[#5a6e53]'
       }`}>
         {formatDuration(row.workedMinutes)}
       </span>
@@ -273,9 +277,11 @@ function AttendanceRow({ row }: { row: DayAttendanceRow }) {
       <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border text-center ${
         row.isCapped
           ? 'bg-amber-100 border-amber-300 text-amber-800'
+          : isOngoing
+          ? 'bg-blue-100 border-blue-300 text-blue-800'
           : 'bg-emerald-50 border-emerald-200 text-emerald-700'
       }`}>
-        {row.isCapped ? 'Auto-Capped' : 'Clocked Out'}
+        {row.isCapped ? 'Auto-Capped' : isOngoing ? 'Ongoing' : 'Clocked Out'}
       </span>
     </div>
   );

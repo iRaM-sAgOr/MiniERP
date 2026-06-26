@@ -69,6 +69,9 @@ function computeDayDetail(dayPunches: RawPunch[]): DayAttendanceRow | null {
   if (punchEvents.length === 0) return null;
 
   const dayEndMs = new Date(`${date}T23:59:59`).getTime();
+  const nowMs = Date.now();
+  const todayKey = new Date(nowMs).toISOString().split("T")[0];
+  const isToday = date === todayKey;
   const firstPunchIn = punchEvents[0].clockIn;
 
   const clockOutEvents = sorted.filter(p => p.type === "ClockOut");
@@ -124,11 +127,13 @@ function computeDayDetail(dayPunches: RawPunch[]): DayAttendanceRow | null {
 
   let isCapped = false;
   if (segmentStartMs !== null) {
-    isCapped = true;
+    const capMs = isToday ? Math.min(nowMs, dayEndMs) : dayEndMs;
+    isCapped = !isToday || nowMs >= dayEndMs;
+
     if (breakStartMs !== null) {
-      segmentBreakMs += Math.max(0, dayEndMs - breakStartMs);
+      segmentBreakMs += Math.max(0, capMs - breakStartMs);
     }
-    totalWorkedMs += Math.max(0, dayEndMs - segmentStartMs - segmentBreakMs);
+    totalWorkedMs += Math.max(0, capMs - segmentStartMs - segmentBreakMs);
   }
 
   return {
@@ -167,12 +172,10 @@ export class AttendanceService {
       where: { userId, date: { gte: cutoffDate } },
     });
 
-    const member = await MemberRepository.findById(userId);
-    const isClockedOut = member?.punchStatus === "ClockedOut";
-
     const byDate = groupByDate(punches);
 
     const todayDetail = computeDayDetail(byDate.get(today) ?? []);
+    const isClockedOut = todayDetail ? (!todayDetail.isCapped && todayDetail.lastClockOut !== null) : false;
 
     const last7Days: AttendanceDaySummary[] = Array.from(byDate.entries())
       .sort((a, b) => b[0].localeCompare(a[0]))
@@ -249,7 +252,7 @@ export class AttendanceService {
       return {
         memberId: engineer.id,
         todayWorkedMinutes: todayDetail?.workedMinutes ?? 0,
-        isClockedOut: engineer.punchStatus === "ClockedOut",
+        isClockedOut: todayDetail ? (!todayDetail.isCapped && todayDetail.lastClockOut !== null) : false,
         last7Days,
         completedTasks,
       };

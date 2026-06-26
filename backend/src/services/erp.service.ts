@@ -59,8 +59,23 @@ const buildCommonState = async (requesterId?: string | null): Promise<CommonStat
   ]);
 
   const safeMembers = members as StateMember[];
+  const todayKey = new Date().toISOString().split("T")[0];
+  const normalizedMembers = safeMembers.map(member => {
+    const status = member.punchStatus;
+    const isWorkingState = status === "Active" || status === "Break";
+    if (!isWorkingState) return member;
+
+    const lastPunchDate = member.lastPunchTime?.split("T")[0];
+    if (lastPunchDate === todayKey) return member;
+
+    return {
+      ...member,
+      punchStatus: "ClockedOut",
+    };
+  });
+
   const requesterExists = Boolean(requester);
-  const scopedMembers = requesterExists ? safeMembers : [];
+  const scopedMembers = requesterExists ? normalizedMembers : [];
   const scopedPunches = requesterExists ? (isManager ? punches : punches.filter(punch => punch.userId === requesterId)) : [];
   const scopedWorklogs = requesterExists ? (isManager ? worklogs : worklogs.filter(worklog => worklog.userId === requesterId)) : [];
   const scopedTasks = requesterExists ? (isManager ? tasks : tasks.filter(task => task.assignedTo === requesterId)) : [];
