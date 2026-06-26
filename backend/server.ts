@@ -12,6 +12,7 @@ import { WorkLogService } from "./src/services/worklog.service.js";
 import { initChatGateway } from "./src/realtime/chat.gateway.js";
 import { requestLogger } from "./src/middleware/request-logger.middleware.js";
 import { logger } from "./src/config/logger.js";
+import { validateSupabaseConfig } from "./src/services/avatar-storage.service.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -98,6 +99,9 @@ WorkLogService.recalculateAllTaskActualHours()
 
 // Serve frontend assets or mount Vite dev middleware
 const startServer = async () => {
+  // Fail fast if Supabase storage is not properly configured
+  await validateSupabaseConfig();
+
   if (useViteMiddleware) {
     const vite = await createViteServer({
       server: { middlewareMode: true },

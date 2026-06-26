@@ -11,5 +11,9 @@ services:
       PORT: 8080
       NODE_ENV: production
       VITE_MIDDLEWARE: "false"
+      # Supabase Storage — set these in .env.prod
+      # SUPABASE_URL: https://<your-project-ref>.supabase.co
+      # SUPABASE_SERVICE_ROLE_KEY: your-service-role-key
+      # SUPABASE_STORAGE_BUCKET: avatars
     ports:
       - "8080:8080"

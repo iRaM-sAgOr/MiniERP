@@ -1,20 +1,15 @@
 import type { Request, Response } from "express";
-import { mkdir } from "fs/promises";
-import path from "path";
 import sharp from "sharp";
-import { fileURLToPath } from "url";
 import { getRequestUserId } from "../middleware/auth.middleware.js";
 import { getOnlineUsers } from "../realtime/chat.gateway.js";
 import { ErpService } from "../services/erp.service.js";
+import { uploadAvatarToSupabase } from "../services/avatar-storage.service.js";
+import { MemberRepository } from "../repositories/member.repository.js";
 import { MemberService } from "../services/member.service.js";
 import { MessageService } from "../services/message.service.js";
 import { SentEmailService } from "../services/sent-email.service.js";
 import { TaskService } from "../services/task.service.js";
 import { WorkLogService } from "../services/worklog.service.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const AVATAR_UPLOAD_DIR = path.resolve(__dirname, "../../uploads/avatars");
 const MIN_AVATAR_DIMENSION = 128;
 const MAX_AVATAR_DIMENSION = 2048;
 
@@ -224,30 +219,30 @@ export const updateProfile = async (req: Request, res: Response) => {
         });
       }
 
-      await mkdir(AVATAR_UPLOAD_DIR, { recursive: true });
+      const targetMime = req.file.mimetype === "image/png" ? "image/png" : "image/jpeg";
+      const normalizedBuffer = targetMime === "image/png"
+        ? await sharp(req.file.buffer).png({ compressionLevel: 9 }).toBuffer()
+        : await sharp(req.file.buffer).jpeg({ quality: 88 }).toBuffer();
 
-      const ext = req.file.mimetype === "image/png" ? "png" : "jpg";
-      const fileName = `avatar_${parsedUserId}_${Date.now()}.${ext}`;
-      const outputPath = path.join(AVATAR_UPLOAD_DIR, fileName);
+      // Fetch the current avatar URL so the old file can be deleted from Supabase.
+      const existingMember = await MemberRepository.findById(parsedUserId);
+      const oldAvatarUrl = existingMember?.avatar ?? null;
 
-      if (ext === "png") {
-        await sharp(req.file.buffer).png({ compressionLevel: 9 }).toFile(outputPath);
-      } else {
-        await sharp(req.file.buffer).jpeg({ quality: 88 }).toFile(outputPath);
-      }
-
-      const host = req.get("host");
-      if (!host) {
-        return res.status(400).json({ error: "Unable to resolve upload host." });
-      }
-
-      profileData.avatar = `${req.protocol}://${host}/uploads/avatars/${fileName}`;
+      profileData.avatar = await uploadAvatarToSupabase({
+        userId: parsedUserId,
+        buffer: normalizedBuffer,
+        mimeType: targetMime,
+        oldAvatarUrl,
+      });
     }
 
     const result = await ErpService.updateProfile(parsedUserId, profileData, getRequestUserId(req));
     res.json(result);
   } catch (err: any) {
-    const status = err.message === "You can update only your own profile." ? 403 : 400;
+    const message = err?.message || "Profile update failed.";
+    const status = message === "You can update only your own profile."
+      ? 403
+      : (message.includes("Supabase") ? 500 : 400);
     res.status(status).json({ error: err.message });
   }
 };

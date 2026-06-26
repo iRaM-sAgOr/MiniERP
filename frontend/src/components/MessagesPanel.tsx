@@ -43,6 +43,7 @@ export default function MessagesPanel({
 
   const correspondent = members.find(m => m.id === selectedChatUserId);
   const selectedContact = contacts.find(c => c.contactId === selectedChatUserId);
+  const visibleOnlineUsers = onlineUsers.filter(user => user.userId !== currentMember.id);
 
   const handleSend = () => {
     if (typedMessage.trim() && selectedChatUserId) {
@@ -68,10 +69,10 @@ export default function MessagesPanel({
         <div className="md:col-span-1 border-r border-[#e2dfd2]/60 pr-4 space-y-2">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono text-left">Online Users (Socket Presence)</span>
           <div className="space-y-1.5 max-h-36 overflow-y-auto">
-            {onlineUsers.length === 0 && (
+            {visibleOnlineUsers.length === 0 && (
               <div className="text-[10px] text-slate-400 italic px-1">No users online right now.</div>
             )}
-            {onlineUsers.map(onlineUser => {
+            {visibleOnlineUsers.map(onlineUser => {
                 const m = members.find(member => member.id === onlineUser.userId);
                 const count = unseenSenders.get(onlineUser.userId) || 0;
                 return (

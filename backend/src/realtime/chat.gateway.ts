@@ -58,9 +58,21 @@ export const getOnlineUsers = () => {
 
 const emitPresenceSnapshot = () => {
   if (!ioRef) return;
-  ioRef.emit("chat:presence:snapshot", {
-    users: getOnlineUsers(),
-    updatedAt: new Date().toISOString(),
+
+  const allUsers = getOnlineUsers();
+  const updatedAt = new Date().toISOString();
+
+  // Emit a personalized snapshot to each socket so the requester never sees themself.
+  ioRef.sockets.sockets.forEach((clientSocket) => {
+    const socketUser = clientSocket.data.user as SocketUser | undefined;
+    const users = socketUser?.id
+      ? allUsers.filter((user) => user.userId !== socketUser.id)
+      : allUsers;
+
+    clientSocket.emit("chat:presence:snapshot", {
+      users,
+      updatedAt,
+    });
   });
 };
 
@@ -128,8 +140,13 @@ export const initChatGateway = (io: Server) => {
     });
 
     socket.on("chat:presence:request", () => {
+      const requester = socket.data.user as SocketUser | undefined;
+      const users = requester?.id
+        ? getOnlineUsers().filter((user) => user.userId !== requester.id)
+        : getOnlineUsers();
+
       socket.emit("chat:presence:snapshot", {
-        users: getOnlineUsers(),
+        users,
         updatedAt: new Date().toISOString(),
       });
     });
