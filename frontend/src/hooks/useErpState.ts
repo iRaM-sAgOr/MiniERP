@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, SetStateAction } from 'react';
+import { useState, useEffect, useCallback, SetStateAction, useRef } from 'react';
 import { createApiFetch } from '../api/apiFetch';
 import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage, EnterpriseProject, AttendanceData, DayAttendanceRow, TaskListQuery, TaskListResult, MessageContact, SentEmailLogPage } from '../types';
 import { upsertMessage } from './useChatSocket';
@@ -156,6 +156,7 @@ export function useErpState(): ErpState {
   );
   const [activeTab, setActiveTab] = useState<ActiveTab>('roster');
   const [systemAlert, setSystemAlert] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const unauthorizedLogoutTriggeredRef = useRef(false);
 
   const setCurrentMemberId = useCallback((id: string) => {
     setCurrentMemberIdState(id);
@@ -166,16 +167,45 @@ export function useErpState(): ErpState {
     localStorage.setItem('syncspace_manager_view', mode);
   }, []);
 
-  // Build the fetch helper fresh each time authToken/authRoleType changes
-  const apiFetch = useCallback(
-    createApiFetch(authToken, authRoleType),
-    [authToken, authRoleType]
-  );
-
   const triggerAlert = useCallback((type: 'success' | 'error' | 'info', text: string) => {
     setSystemAlert({ type, text });
     setTimeout(() => setSystemAlert(null), 5000);
   }, []);
+
+  const handleLogout = useCallback(() => {
+    setCurrentMemberId('');
+    setAuthToken('');
+    setAuthRoleType('');
+    setAuthMemberId('');
+    setManagerViewModeState('manager');
+    setCurrentScreen('home');
+    setMembers([]);
+    setPunches([]);
+    setWorklogs([]);
+    setTasks([]);
+    setSentEmailsLog(null);
+    setMessages([]);
+    setMessageContacts([]);
+    setProjects([]);
+    setManagerProjects([]);
+    setAttendance(null);
+    localStorage.removeItem('syncspace_current_member_id');
+    localStorage.removeItem('syncspace_auth_token');
+    localStorage.removeItem('syncspace_auth_role_type');
+    localStorage.removeItem('syncspace_auth_member_id');
+    localStorage.removeItem('syncspace_manager_view');
+    triggerAlert('info', 'Session expired. Redirected to login.');
+  }, [setCurrentMemberId, triggerAlert]);
+
+  // Build the fetch helper fresh each time authToken/authRoleType changes
+  const apiFetch = useCallback(
+    createApiFetch(authToken, authRoleType, () => {
+      if (unauthorizedLogoutTriggeredRef.current) return;
+      unauthorizedLogoutTriggeredRef.current = true;
+      handleLogout();
+    }),
+    [authToken, authRoleType, handleLogout]
+  );
 
   // ---- Fetchers ----
   const fetchState = useCallback(async () => {
@@ -360,7 +390,10 @@ export function useErpState(): ErpState {
     fetchAttendance();
   }, [fetchState, fetchWorklogs, fetchMessageContacts, fetchSentEmailLogs, fetchProjects, fetchManagerProjects, fetchAttendance]);
 
-  useEffect(() => { refetchAll(); }, [authToken]);
+  useEffect(() => {
+    unauthorizedLogoutTriggeredRef.current = false;
+    refetchAll();
+  }, [authToken, refetchAll]);
 
   // ---- Actions ----
   const handleProfileSwitch = useCallback((id: string) => {
@@ -844,21 +877,6 @@ export function useErpState(): ErpState {
       triggerAlert('error', 'Connection error routing chat stream.');
     }
   }, [apiFetch, currentMemberId, fetchConversationMessages, fetchMessageContacts, triggerAlert]);
-
-  const handleLogout = useCallback(() => {
-    setCurrentMemberId('');
-    setAuthToken('');
-    setAuthRoleType('');
-    setAuthMemberId('');
-    setManagerViewModeState('manager');
-    setCurrentScreen('home');
-    localStorage.removeItem('syncspace_current_member_id');
-    localStorage.removeItem('syncspace_auth_token');
-    localStorage.removeItem('syncspace_auth_role_type');
-    localStorage.removeItem('syncspace_auth_member_id');
-    localStorage.removeItem('syncspace_manager_view');
-    triggerAlert('info', 'Logged out successfully from remote ERP session.');
-  }, [triggerAlert, setCurrentMemberId]);
 
   // ---- Derived values ----
   const todayStr = new Date().toISOString().split('T')[0];

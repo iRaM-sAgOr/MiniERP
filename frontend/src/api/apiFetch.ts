@@ -14,7 +14,11 @@ function resolveApiPath(value: RequestInfo | URL, authRoleType: string): Request
   return `/api/${routeScope}/${suffix}`;
 }
 
-export function createApiFetch(authToken: string, authRoleType: string) {
+export function createApiFetch(
+  authToken: string,
+  authRoleType: string,
+  onUnauthorized?: () => void
+) {
   return function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
     const headers = new Headers(init.headers || {});
     const token = authToken || localStorage.getItem('syncspace_auth_token') || '';
@@ -33,6 +37,11 @@ export function createApiFetch(authToken: string, authRoleType: string) {
         ? `${apiBaseUrl}${resolved}`
         : resolved;
 
-    return fetch(requestTarget, { ...init, headers });
+    return fetch(requestTarget, { ...init, headers }).then(response => {
+      if (response.status === 401) {
+        onUnauthorized?.();
+      }
+      return response;
+    });
   };
 }
