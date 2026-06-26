@@ -1,6 +1,11 @@
 import type { Server, Socket } from "socket.io";
 import { MessageService } from "../services/message.service.js";
 import { verifyAuthToken } from "../middleware/auth.middleware.js";
+import {
+  getOnlineSessionUsers,
+  registerSocketSession,
+  unregisterSocketSession,
+} from "./socket-session.store.js";
 
 type DirectSendPayload = {
   senderId: string;
@@ -18,6 +23,7 @@ type SocketUser = {
   id: string;
   roleType: string;
   email: string;
+  name?: string;
 };
 
 let ioRef: Server | null = null;
@@ -36,6 +42,26 @@ export const emitDirectMessage = (message: any) => {
   if (payload.receiverId) {
     ioRef.to(`user:${payload.receiverId}`).emit("chat:direct:new", payload);
   }
+};
+
+export const getOnlineUsers = () => {
+  return getOnlineSessionUsers().map((user) => ({
+    userId: user.id,
+    name: user.name,
+    roleType: user.roleType,
+    email: user.email,
+    socketId: user.socketId,
+    socketIds: user.socketIds,
+    socketCount: user.socketIds.length,
+  }));
+};
+
+const emitPresenceSnapshot = () => {
+  if (!ioRef) return;
+  ioRef.emit("chat:presence:snapshot", {
+    users: getOnlineUsers(),
+    updatedAt: new Date().toISOString(),
+  });
 };
 
 const registerJoinHandler = (socket: Socket) => {
@@ -89,9 +115,23 @@ export const initChatGateway = (io: Server) => {
     const user = socket.data.user as SocketUser | undefined;
     if (user?.id) {
       socket.join(`user:${user.id}`);
+      registerSocketSession(user, socket.id);
+      emitPresenceSnapshot();
     }
 
     registerJoinHandler(socket);
     registerDirectSendHandler(socket);
+
+    socket.on("disconnect", () => {
+      unregisterSocketSession(socket.id);
+      emitPresenceSnapshot();
+    });
+
+    socket.on("chat:presence:request", () => {
+      socket.emit("chat:presence:snapshot", {
+        users: getOnlineUsers(),
+        updatedAt: new Date().toISOString(),
+      });
+    });
   });
 };

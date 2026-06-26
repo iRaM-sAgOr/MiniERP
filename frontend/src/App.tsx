@@ -6,6 +6,7 @@ import AuthScreen from './screens/AuthScreen';
 import HomeScreen from './screens/HomeScreen';
 import DashboardScreen from './screens/DashboardScreen';
 import { createApiFetch } from './api/apiFetch';
+import { OnlineMessageUser } from './types';
 
 // ─── Login page ──────────────────────────────────────────────────────────────
 // Rendered at "/" — useErpState is NOT called here, so zero API requests fire
@@ -133,6 +134,7 @@ function DashboardApp() {
   const erp = useErpState();
 
   const [unseenSenders, setUnseenSenders] = useState<Map<string, number>>(new Map());
+  const [onlineMessageUsers, setOnlineMessageUsers] = useState<OnlineMessageUser[]>([]);
   const activeTabRef = useRef(erp.activeTab);
   useEffect(() => { activeTabRef.current = erp.activeTab; }, [erp.activeTab]);
 
@@ -164,6 +166,7 @@ function DashboardApp() {
         return next;
       });
     },
+    onPresenceSync: users => setOnlineMessageUsers(users),
   });
 
   const totalUnseen = Array.from(unseenSenders.values()).reduce((s, n) => s + n, 0);
@@ -236,6 +239,7 @@ function DashboardApp() {
       sentEmailsLog={erp.sentEmailsLog}
       messages={erp.messages}
       messageContacts={erp.messageContacts}
+      onlineMessageUsers={onlineMessageUsers}
       projects={erp.projects}
       managerProjects={erp.managerProjects}
       authRoleType={erp.authRoleType}

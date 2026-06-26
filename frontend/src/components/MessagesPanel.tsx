@@ -1,11 +1,12 @@
 import React, { useRef, useEffect } from 'react';
 import { MessageSquare, Send } from 'lucide-react';
-import { TeamMember, DirectMessage, MessageContact } from '../types';
+import { TeamMember, DirectMessage, MessageContact, OnlineMessageUser } from '../types';
 
 interface MessagesPanelProps {
   currentMember: TeamMember;
   members: TeamMember[];
   contacts: MessageContact[];
+  onlineUsers: OnlineMessageUser[];
   messages: DirectMessage[];
   unseenSenders: Map<string, number>;
   selectedChatUserId: string;
@@ -19,6 +20,7 @@ export default function MessagesPanel({
   currentMember,
   members,
   contacts,
+  onlineUsers,
   messages,
   unseenSenders,
   selectedChatUserId,
@@ -64,8 +66,50 @@ export default function MessagesPanel({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Member list */}
         <div className="md:col-span-1 border-r border-[#e2dfd2]/60 pr-4 space-y-2">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono text-left">Active Remote Members</span>
-          <div className="space-y-1.5 max-h-75 overflow-y-auto">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono text-left">Online Users (Socket Presence)</span>
+          <div className="space-y-1.5 max-h-36 overflow-y-auto">
+            {onlineUsers.length === 0 && (
+              <div className="text-[10px] text-slate-400 italic px-1">No users online right now.</div>
+            )}
+            {onlineUsers.map(onlineUser => {
+                const m = members.find(member => member.id === onlineUser.userId);
+                const count = unseenSenders.get(onlineUser.userId) || 0;
+                return (
+                  <button
+                    key={onlineUser.userId}
+                    onClick={() => onSelectUser(onlineUser.userId)}
+                    className={`w-full flex items-center justify-between p-2 rounded-xl text-left text-xs transition-all cursor-pointer ${
+                      selectedChatUserId === onlineUser.userId
+                        ? 'bg-[#5a6e53]/10 text-[#2d3a2a] border border-[#5a6e53]/35 font-bold'
+                        : count > 0
+                          ? 'bg-red-50 border border-red-200 text-[#3d403a]'
+                          : 'hover:bg-[#f4f1e8]/30 text-[#3d403a]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <img src={m?.avatar || currentMember.avatar} alt={m?.name || onlineUser.name} className="w-6 h-6 rounded-full object-cover border" referrerPolicy="no-referrer" />
+                        {count > 0 && (
+                          <span className="absolute -top-1 -right-1 min-w-3.5 h-3.5 bg-red-500 text-white text-[8px] font-extrabold rounded-full flex items-center justify-center px-0.5 leading-none">
+                            {count > 9 ? '9+' : count}
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-bold leading-tight">{m?.name || onlineUser.name}</p>
+                        <p className="text-[10px] text-slate-400 font-mono italic leading-none">{onlineUser.roleType}</p>
+                      </div>
+                    </div>
+                    <span className="text-[9px] font-extrabold uppercase font-mono px-1.5 py-0.5 rounded leading-none shrink-0 bg-emerald-100 text-emerald-800">
+                      Online
+                    </span>
+                  </button>
+                );
+              })}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono text-left pt-2">Recent Contacts</span>
+          <div className="space-y-1.5 max-h-39 overflow-y-auto">
             {contacts.map(contact => {
                 const m = members.find(member => member.id === contact.contactId);
                 const count = unseenSenders.get(contact.contactId) || 0;

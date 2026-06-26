@@ -4,6 +4,7 @@ import path from "path";
 import sharp from "sharp";
 import { fileURLToPath } from "url";
 import { getRequestUserId } from "../middleware/auth.middleware.js";
+import { getOnlineUsers } from "../realtime/chat.gateway.js";
 import { ErpService } from "../services/erp.service.js";
 import { MemberService } from "../services/member.service.js";
 import { MessageService } from "../services/message.service.js";
@@ -324,6 +325,20 @@ export const getConversationMessages = async (req: Request, res: Response) => {
 
     const messages = await MessageService.getConversationMessages(requesterId, contactId);
     res.json({ messages });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const getOnlineMessageUsers = async (req: Request, res: Response) => {
+  try {
+    const requesterId = getRequestUserId(req);
+    if (!requesterId) {
+      return res.status(401).json({ error: "JWT token is required." });
+    }
+
+    const users = getOnlineUsers().filter((user) => user.userId !== requesterId);
+    res.json({ users });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

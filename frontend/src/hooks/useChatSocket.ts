@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { getChatSocket, setChatSocketAuthToken } from '../socket/chatSocket';
-import { DirectMessage } from '../types';
+import { DirectMessage, OnlineMessageUser } from '../types';
 
 function upsertMessage(current: DirectMessage[], incoming: any): DirectMessage[] {
   const normalized: DirectMessage = {
@@ -29,6 +29,7 @@ interface UseChatSocketOptions {
   selectedChatUserIdRef: React.MutableRefObject<string>;
   onNewMessage: (updater: (prev: DirectMessage[]) => DirectMessage[]) => void;
   onUnseenUpdate: (senderId: string) => void;
+  onPresenceSync: (users: OnlineMessageUser[]) => void;
 }
 
 export function useChatSocket({
@@ -38,6 +39,7 @@ export function useChatSocket({
   selectedChatUserIdRef,
   onNewMessage,
   onUnseenUpdate,
+  onPresenceSync,
 }: UseChatSocketOptions) {
   const socketRef = useRef<ReturnType<typeof getChatSocket> | null>(null);
 
@@ -58,7 +60,17 @@ export function useChatSocket({
       }
     };
 
+    const handlePresenceSnapshot = (payload: { users?: OnlineMessageUser[] }) => {
+      onPresenceSync(payload?.users || []);
+    };
+
+    const handleConnect = () => {
+      socket.emit('chat:presence:request');
+    };
+
     socket.on('chat:direct:new', handleIncomingMessage);
+    socket.on('chat:presence:snapshot', handlePresenceSnapshot);
+    socket.on('connect', handleConnect);
 
     if (authToken) {
       socket.connect();
@@ -68,6 +80,8 @@ export function useChatSocket({
 
     return () => {
       socket.off('chat:direct:new', handleIncomingMessage);
+      socket.off('chat:presence:snapshot', handlePresenceSnapshot);
+      socket.off('connect', handleConnect);
     };
   }, []);
 

@@ -18,6 +18,7 @@ import {
   updateTaskSubtasks,
   getConversationMessages,
   getMessageContacts,
+  getOnlineMessageUsers,
   getSentEmailLogs,
   updateProject,
 } from "../controllers/erp.controller.js";
@@ -36,6 +37,7 @@ router.get("/projects", getProjects);
 router.get("/worklogs", getWorkLogs);
 router.get("/messages/contacts", getMessageContacts);
 router.get("/messages/conversation", getConversationMessages);
+router.get("/messages/online-users", getOnlineMessageUsers);
 router.get("/sent-email-logs", getSentEmailLogs);
 router.get("/attendance", getAttendance);
 router.get("/tasks", getTasks);

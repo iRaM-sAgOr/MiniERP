@@ -11,7 +11,7 @@ import ProfileManagement from '../components/ProfileManagement';
 import MessagesPanel from '../components/MessagesPanel';
 import SentEmailsPanel from '../components/SentEmailsPanel';
 import RegistrationFormCard from '../components/RegistrationFormCard';
-import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage, EnterpriseProject, AttendanceData, DayAttendanceRow, TaskListQuery, TaskListResult, MessageContact, SentEmailLogPage } from '../types';
+import { TeamMember, PunchRecord, WorkLog, TaskDistribution, LogItem, DirectMessage, EnterpriseProject, AttendanceData, DayAttendanceRow, TaskListQuery, TaskListResult, MessageContact, OnlineMessageUser, SentEmailLogPage } from '../types';
 import { ActiveTab, Screen } from '../hooks/useErpState';
 // @ts-ignore
 import aiLogo from '../assets/images/ai_solution_usa_logo_1780158886266.png';
@@ -25,6 +25,7 @@ interface DashboardScreenProps {
   sentEmailsLog: SentEmailLogPage | null;
   messages: DirectMessage[];
   messageContacts: MessageContact[];
+  onlineMessageUsers: OnlineMessageUser[];
   projects: EnterpriseProject[];
   managerProjects: EnterpriseProject[];
 
@@ -109,7 +110,7 @@ interface DashboardScreenProps {
 
 export default function DashboardScreen(props: DashboardScreenProps) {
   const {
-    members, punches, worklogs, tasks, sentEmailsLog, messages, messageContacts, projects, managerProjects,
+    members, punches, worklogs, tasks, sentEmailsLog, messages, messageContacts, onlineMessageUsers, projects, managerProjects,
     authRoleType, authMemberId, currentMemberId, managerViewMode,
     currentMember, effectiveMember, effectiveRoleType,
     teamLeads, todayStr, attendance, activeWorklog,
@@ -386,6 +387,7 @@ export default function DashboardScreen(props: DashboardScreenProps) {
                   currentMember={effectiveMember}
                   members={members}
                   contacts={messageContacts}
+                  onlineUsers={onlineMessageUsers}
                   messages={messages}
                   unseenSenders={unseenSenders}
                   selectedChatUserId={selectedChatUserId}

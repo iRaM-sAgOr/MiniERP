@@ -72,6 +72,16 @@ export interface MessageContact {
   lastMessagePreview: string;
 }
 
+export interface OnlineMessageUser {
+  userId: string;
+  name: string;
+  roleType: 'Engineer' | 'Manager' | string;
+  email: string;
+  socketId: string;
+  socketIds: string[];
+  socketCount: number;
+}
+
 export interface SentEmailLogEntry {
   id: string;
   senderId: string;
