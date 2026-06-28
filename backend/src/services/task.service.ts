@@ -239,4 +239,28 @@ export class TaskService {
 
     return updated;
   }
+
+  /**
+   * Delete a task by ID.
+   * - Manager: can delete any task.
+   * - Engineer: can delete only tasks they own (assignedTo) or created (assignedBy).
+   */
+  static async deleteTask(taskId: string, requesterId: string) {
+    const task = await TaskRepository.findById(taskId);
+    if (!task) {
+      throw new Error("Task not found.");
+    }
+
+    const requester = await MemberRepository.findById(requesterId);
+    const isManager = (requester?.roleType || "").toLowerCase() === "manager";
+
+    if (!isManager) {
+      const canDelete = task.assignedTo === requesterId || task.assignedBy === requesterId;
+      if (!canDelete) {
+        throw new Error("You can only delete tasks assigned to you or created by you.");
+      }
+    }
+
+    await TaskRepository.delete(taskId);
+  }
 }

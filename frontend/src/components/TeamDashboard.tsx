@@ -33,6 +33,7 @@ interface TeamDashboardProps {
   onAddComment: (taskId: string, text: string) => Promise<void>;
   onUpdateSubtasks: (taskId: string, subtasks: any[]) => Promise<void>;
   onUpdateTaskDetails: (taskId: string, updates: any) => Promise<void>;
+  onDeleteTask?: (taskId: string) => Promise<void>;
   loading: boolean;
   onFetchTasks: (query?: TaskListQuery) => Promise<TaskListResult>;
   onUpdateUserRole?: (userId: string, roleType: 'Engineer' | 'Manager') => Promise<void>;
@@ -50,6 +51,7 @@ export default function TeamDashboard({
   onAddComment,
   onUpdateSubtasks,
   onUpdateTaskDetails,
+  onDeleteTask,
   loading,
   onFetchTasks,
   onUpdateUserRole,
@@ -802,6 +804,7 @@ export default function TeamDashboard({
             onAddComment={onAddComment}
             onUpdateSubtasks={onUpdateSubtasks}
             onUpdateDetails={onUpdateTaskDetails}
+            onDeleteTask={onDeleteTask}
             loading={loading}
           />
         );

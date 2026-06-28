@@ -318,6 +318,11 @@ export class ErpService {
     return buildStateForRequester(requesterId || taskData.assignedBy);
   }
 
+  static async deleteTask(taskId: string, requesterId: string) {
+    await TaskService.deleteTask(taskId, requesterId);
+    return buildStateForRequester(requesterId);
+  }
+
   static async updateTask(taskId: string, actorId: string, status: string | undefined, details: Record<string, any>, requesterId?: string | null) {
     const actorIdFromToken = requesterId || actorId;
     const actor = await MemberRepository.findById(actorIdFromToken);

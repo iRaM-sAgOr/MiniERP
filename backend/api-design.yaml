@@ -401,12 +401,38 @@ paths:
   /api/manager/task:
     post:
       tags: [Manager]
-      summary: Create task
+      summary: Create task (assign to any member)
       security:
         - bearerAuth: []
       responses:
         '200':
           description: Updated state
+
+  /api/manager/task/delete:
+    post:
+      tags: [Manager]
+      summary: Delete any task by ID
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [taskId]
+              properties:
+                taskId:
+                  type: string
+      responses:
+        '200':
+          description: Updated state
+        '404':
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/manager/task/update:
     post:
@@ -427,6 +453,77 @@ paths:
       responses:
         '200':
           description: Updated state
+
+  /api/engineer/task:
+    post:
+      tags: [Engineer]
+      summary: Create a task and assign it to any member, including the requesting engineer
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, description, assignedTo, priority, dueDate, projectName]
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                assignedTo:
+                  type: string
+                priority:
+                  type: string
+                  enum: [Low, Medium, High]
+                dueDate:
+                  type: string
+                  format: date
+                projectName:
+                  type: string
+                estimatedHours:
+                  type: number
+                startDate:
+                  type: string
+                  format: date
+      responses:
+        '200':
+          description: Updated state
+        '401':
+          description: Unauthorized
+
+  /api/engineer/task/delete:
+    post:
+      tags: [Engineer]
+      summary: Delete a task owned by the requesting engineer (assignedTo or assignedBy)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [taskId]
+              properties:
+                taskId:
+                  type: string
+      responses:
+        '200':
+          description: Updated state
+        '403':
+          description: Not authorized to delete this task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/manager/task/comment:
     post:

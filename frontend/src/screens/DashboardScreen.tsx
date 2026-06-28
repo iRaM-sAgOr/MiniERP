@@ -78,6 +78,7 @@ interface DashboardScreenProps {
   handleDeleteWorklogItem: (worklogId: string, itemId: string) => Promise<void>;
   handleSendEmail: (worklogId: string | undefined, subject: string, body: string, recipientId: string) => Promise<void>;
   handleAssignTask: (taskData: any) => Promise<void>;
+  handleDeleteTask: (taskId: string) => Promise<void>;
   handleCreateProject: (name: string, description: string) => Promise<void>;
   handleUpdateProject: (projectId: string, payload: {
     name?: string;
@@ -121,7 +122,7 @@ export default function DashboardScreen(props: DashboardScreenProps) {
     setActiveTab, setCurrentMemberId, setCurrentScreen, setManagerViewMode, setMessages,
     socketRef, triggerAlert,
     handleProfileSwitch, handlePunch, handleAppendWorklogItem, handleDeleteWorklogItem, handleSendEmail,
-    handleAssignTask, handleCreateProject, handleUpdateProject, handleDeleteProject,
+    handleAssignTask, handleDeleteTask, handleCreateProject, handleUpdateProject, handleDeleteProject,
     handleUpdateTaskStatus, handleAddTaskComment, handleUpdateTaskSubtasks,
     handleUpdateTaskDetails, handleRegisterUser, handleUpdateUserRole,
     handleUpdateProfile, handleManagerGeneratePasswordReset,
@@ -361,6 +362,7 @@ export default function DashboardScreen(props: DashboardScreenProps) {
                   onAddComment={handleAddTaskComment}
                   onUpdateSubtasks={handleUpdateTaskSubtasks}
                   onUpdateTaskDetails={handleUpdateTaskDetails}
+                  onDeleteTask={handleDeleteTask}
                   loading={taskLoading}
                   onUpdateUserRole={handleUpdateUserRole}
                   onGeneratePasswordResetToken={handleManagerGeneratePasswordReset}

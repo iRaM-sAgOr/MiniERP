@@ -154,4 +154,8 @@ export class TaskRepository {
       },
     });
   }
+
+  static async delete(id: string) {
+    return prisma.task.delete({ where: { id } });
+  }
 }

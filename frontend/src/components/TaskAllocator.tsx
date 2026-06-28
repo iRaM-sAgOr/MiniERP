@@ -49,7 +49,7 @@ export default function TaskAllocator({
   
   const isManager = currentMember.roleType === 'Manager';
   const [assignedTo, setAssignedTo] = useState(() => {
-    return isManager ? (members.find(m => m.id !== currentMember.id)?.id || currentMember.id) : currentMember.id;
+    return members.find(m => m.id !== currentMember.id)?.id || currentMember.id;
   });
 
   const [priority, setPriority] = useState<'Low' | 'Medium' | 'High'>('Medium');
@@ -120,13 +120,10 @@ export default function TaskAllocator({
     e.preventDefault();
     if (!title || !selectedProject) return;
 
-    // Engineers must self-assign tasks
-    const targetAssignee = isManager ? assignedTo : currentMember.id;
-
     await onAssignTask({
       title,
       description,
-      assignedTo: targetAssignee,
+      assignedTo,
       priority,
       dueDate,
       projectName: selectedProject,
@@ -193,12 +190,12 @@ export default function TaskAllocator({
           </div>
           <div>
             <h3 className="font-semibold text-[#2d3a2a] font-serif text-base tracking-tight">
-              {isManager ? 'Standard Work Item Distribution' : 'Self-Assign Task Backlog'}
+              {isManager ? 'Standard Work Item Distribution' : 'Engineer Task Allocation'}
             </h3>
             <p className="text-xs text-[#7a7d75]">
               {isManager 
                 ? 'Issue structured tasks, assign estimated times, and direct core development' 
-                : 'Publish self-assigned objectives to let project managers track your execution schedules'}
+                : 'Create tasks and assign them to any engineer or to yourself for structured execution tracking'}
             </p>
           </div>
         </div>
@@ -262,25 +259,19 @@ export default function TaskAllocator({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-semibold text-[#3d403a] block mb-1">Task Assignee</label>
-              {isManager ? (
-                <select
-                  className="w-full text-xs bg-[#fdfcf8] border border-[#e2dfd2] rounded-xl px-3 py-2 text-[#3d403a] focus:outline-none focus:ring-1 focus:ring-[#5a6e53]/30 font-sans cursor-pointer"
-                  value={assignedTo}
-                  onChange={e => setAssignedTo(e.target.value)}
-                  disabled={loading}
-                >
-                  <option value={currentMember.id}>Myself ({currentMember.name})</option>
-                  {members.filter(m => m.id !== currentMember.id).map(member => (
-                    <option key={member.id} value={member.id}>
-                      {member.name} ({member.role})
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div className="bg-[#f4f1e8]/40 border border-[#e2dfd2] px-3 py-2 rounded-xl text-xs font-semibold text-[#5a6e53] font-sans">
-                  🔒 Locked to Self (Engineer Self-Assignment)
-                </div>
-              )}
+              <select
+                className="w-full text-xs bg-[#fdfcf8] border border-[#e2dfd2] rounded-xl px-3 py-2 text-[#3d403a] focus:outline-none focus:ring-1 focus:ring-[#5a6e53]/30 font-sans cursor-pointer"
+                value={assignedTo}
+                onChange={e => setAssignedTo(e.target.value)}
+                disabled={loading}
+              >
+                <option value={currentMember.id}>Myself ({currentMember.name})</option>
+                {members.filter(m => m.id !== currentMember.id).map(member => (
+                  <option key={member.id} value={member.id}>
+                    {member.name} ({member.role})
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -348,7 +339,7 @@ export default function TaskAllocator({
             <div className="flex items-start gap-2 p-3 bg-emerald-50/50 border border-emerald-100 rounded-xl">
               <Info className="w-4 h-4 text-[#5a6e53] mt-0.5 shrink-0" />
               <p className="text-[10px] text-emerald-800 leading-normal font-sans">
-                <strong>Self-Assignment Feature:</strong> As an Engineer, you have direct authorization to self-allocate deliverables. Your logged work entries will compile against this assigned item on the central timeline metrics dashboard.
+                <strong>Engineer Assignment Feature:</strong> As an Engineer, you can create a task and assign it to any teammate, including yourself. The creator is still tracked in the task history and assignment metadata.
               </p>
             </div>
           )}
@@ -359,7 +350,7 @@ export default function TaskAllocator({
             className="w-full flex items-center justify-center gap-1.5 bg-[#5a6e53] hover:opacity-90 text-white font-bold text-xs rounded-xl py-2.5 px-4 transition-all disabled:opacity-50 cursor-pointer shadow-sm"
           >
             <PlusCircle className="w-4 h-4 text-[#d4a373]" />
-            {isManager ? 'Publish Assignment to Developer' : 'Initialize Self-Assigned Task'}
+            {isManager ? 'Publish Assignment to Developer' : 'Create and Assign Task'}
           </button>
         </form>
 

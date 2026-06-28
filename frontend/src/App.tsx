@@ -280,6 +280,7 @@ function DashboardApp() {
       handleDeleteWorklogItem={erp.handleDeleteWorklogItem}
       handleSendEmail={erp.handleSendEmail}
       handleAssignTask={erp.handleAssignTask}
+      handleDeleteTask={erp.handleDeleteTask}
       handleCreateProject={erp.handleCreateProject}
       handleUpdateProject={erp.handleUpdateProject}
       handleDeleteProject={erp.handleDeleteProject}

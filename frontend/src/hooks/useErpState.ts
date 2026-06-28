@@ -72,6 +72,7 @@ export interface ErpState {
     priority: 'Low' | 'Medium' | 'High'; dueDate: string;
     projectName?: string; estimatedHours?: number; startDate?: string; endDate?: string;
   }) => Promise<void>;
+  handleDeleteTask: (taskId: string) => Promise<void>;
   handleCreateProject: (name: string, description: string) => Promise<void>;
   handleUpdateProject: (projectId: string, payload: {
     name?: string;
@@ -518,6 +519,28 @@ export function useErpState(): ErpState {
     }
   }, [apiFetch, currentMemberId, triggerAlert]);
 
+  const handleDeleteTask = useCallback(async (taskId: string) => {
+    try {
+      setTaskLoading(true);
+      const res = await apiFetch('/api/erp/task/delete', {
+        method: 'POST',
+        body: JSON.stringify({ taskId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTasks(data.state.tasks);
+        triggerAlert('success', 'Task deleted successfully.');
+      } else {
+        const err = await res.json();
+        triggerAlert('error', err.error || 'Failed to delete task.');
+      }
+    } catch {
+      triggerAlert('error', 'Network error deleting task.');
+    } finally {
+      setTaskLoading(false);
+    }
+  }, [apiFetch, triggerAlert]);
+
   const handleCreateProject = useCallback(async (name: string, description: string) => {
     try {
       setProjectLoading(true);
@@ -913,7 +936,7 @@ export function useErpState(): ErpState {
   setManagerViewMode, setActiveTab,
   triggerAlert, handleProfileSwitch,
     handlePunch, handleAppendWorklogItem, handleDeleteWorklogItem, handleSendEmail,
-    handleAssignTask, handleCreateProject, handleUpdateProject, handleDeleteProject,
+    handleAssignTask, handleDeleteTask, handleCreateProject, handleUpdateProject, handleDeleteProject,
   handleUpdateTaskStatus, handleAddTaskComment,
   handleUpdateTaskSubtasks, handleUpdateTaskDetails,
   handleRegisterUser, handleUpdateUserRole, handleUpdateProfile,

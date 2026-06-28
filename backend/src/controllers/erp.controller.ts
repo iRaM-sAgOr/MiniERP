@@ -102,6 +102,25 @@ export const createTask = async (req: Request, res: Response) => {
   }
 };
 
+export const deleteTask = async (req: Request, res: Response) => {
+  try {
+    const requesterId = getRequestUserId(req);
+    if (!requesterId) {
+      return res.status(401).json({ error: "JWT token is required." });
+    }
+    const { taskId } = req.body;
+    if (!taskId) {
+      return res.status(400).json({ error: "taskId is required." });
+    }
+    const state = await ErpService.deleteTask(taskId, requesterId);
+    res.json({ state });
+  } catch (err: any) {
+    const status = err.message === "Task not found." ? 404
+      : err.message.includes("only delete") ? 403 : 400;
+    res.status(status).json({ error: err.message });
+  }
+};
+
 export const getTasks = async (req: Request, res: Response) => {
   try {
     const requesterId = getRequestUserId(req);

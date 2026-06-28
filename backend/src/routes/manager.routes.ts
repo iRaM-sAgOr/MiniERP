@@ -5,6 +5,7 @@ import {
   createProject,
   createTask,
   deleteProject,
+  deleteTask,
   deleteWorklogItem,
   getTasks,
   getManagerState,
@@ -49,6 +50,7 @@ router.post("/task", createTask);
 router.post("/task/update", updateTask);
 router.post("/task/comment", addTaskComment);
 router.post("/task/subtasks", updateTaskSubtasks);
+router.post("/task/delete", deleteTask);
 router.post("/project", createProject);
 router.post("/project/update", updateProject);
 router.post("/project/delete", deleteProject);

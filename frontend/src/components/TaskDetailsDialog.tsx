@@ -29,6 +29,7 @@ interface TaskDetailsDialogProps {
   onAddComment: (taskId: string, text: string) => Promise<void>;
   onUpdateSubtasks: (taskId: string, subtasks: TaskSubtask[]) => Promise<void>;
   onUpdateDetails: (taskId: string, updates: any) => Promise<void>;
+  onDeleteTask?: (taskId: string) => Promise<void>;
   loading: boolean;
 }
 
@@ -41,6 +42,7 @@ export default function TaskDetailsDialog({
   onAddComment,
   onUpdateSubtasks,
   onUpdateDetails,
+  onDeleteTask,
   loading
 }: TaskDetailsDialogProps) {
   const [commentText, setCommentText] = useState('');
@@ -56,6 +58,18 @@ export default function TaskDetailsDialog({
   const [editEndDate, setEditEndDate] = useState(task.endDate || task.dueDate || '');
 
   const isManager = currentMember.roleType === 'Manager' || task.assignedBy === currentMember.id;
+  const canDelete = Boolean(onDeleteTask) && (
+    currentMember.roleType === 'Manager' ||
+    task.assignedTo === currentMember.id ||
+    task.assignedBy === currentMember.id
+  );
+
+  const handleDelete = async () => {
+    if (!onDeleteTask) return;
+    if (!window.confirm(`Delete task "${task.title}"? This cannot be undone.`)) return;
+    await onDeleteTask(task.id);
+    onClose();
+  };
   const assignedToMember = members.find(m => m.id === task.assignedTo);
   const assignedByMember = members.find(m => m.id === task.assignedBy);
 
@@ -213,6 +227,15 @@ export default function TaskDetailsDialog({
           >
             Close <X className="w-4 h-4 text-slate-500" />
           </button>
+          {canDelete && (
+            <button
+              onClick={handleDelete}
+              disabled={loading}
+              className="p-1 px-3 hover:bg-rose-50 rounded-xl transition-colors text-rose-500 hover:text-rose-700 border border-rose-200 flex items-center gap-1 font-mono text-xs font-bold disabled:opacity-40"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Delete
+            </button>
+          )}
         </div>
 
         {/* Modal Scroll Body */}

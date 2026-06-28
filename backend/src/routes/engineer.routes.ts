@@ -2,6 +2,8 @@ import { Router } from "express";
 import {
   addTaskComment,
   appendWorklogItem,
+  createTask,
+  deleteTask,
   deleteWorklogItem,
   getConversationMessages,
   getEngineerState,
@@ -42,6 +44,8 @@ router.post("/send-email", sendEmail);
 router.post("/task/update", updateTask);
 router.post("/task/comment", addTaskComment);
 router.post("/task/subtasks", updateTaskSubtasks);
+router.post("/task", createTask);
+router.post("/task/delete", deleteTask);
 router.post("/profile", handleAvatarUpload, updateProfile);
 router.post("/message", sendMessage);
 
